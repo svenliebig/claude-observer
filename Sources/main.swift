@@ -58,31 +58,47 @@ class CrabRenderer {
     }
 
     private static func drawCrab(ctx: CGContext, w: CGFloat, h: CGFloat, frame: Int, state: CrabState) {
+        // For idle/none, draw a faded crab lower in the image (no bounce)
+        // For needsInput, draw shifted left to make room for badge
+        let crabScale: CGFloat = (state == .needsInput || state == .error) ? 0.78 : 1.0
+        let crabOffX: CGFloat = (state == .needsInput || state == .error) ? -w * 0.08 : 0
+        let crabOffY: CGFloat = 0.0
+        let alphaMultiplier: CGFloat = (state == .idle || state == .none) ? 0.4 : 1.0
+
         let body: CGColor
         let shell: CGColor
 
         switch state {
         case .working:
-            body = color(1.0, 0.42, 0.21)
-            shell = color(0.88, 0.35, 0.15)
+            body = color(1.0, 0.45, 0.15)
+            shell = color(0.9, 0.35, 0.1)
         case .idle:
-            body = color(0.55, 0.55, 0.55, 0.75)
-            shell = color(0.45, 0.45, 0.45, 0.75)
+            body = color(0.52, 0.52, 0.58, 0.4)
+            shell = color(0.42, 0.42, 0.48, 0.4)
         case .needsInput:
-            body = color(1.0, 0.25, 0.25)
-            shell = color(0.88, 0.18, 0.18)
+            body = color(1.0, 0.3, 0.2)
+            shell = color(0.9, 0.2, 0.12)
         case .error:
-            body = color(0.8, 0.1, 0.4)
-            shell = color(0.65, 0.08, 0.3)
+            body = color(0.85, 0.15, 0.45)
+            shell = color(0.7, 0.1, 0.35)
         case .none:
-            body = color(0.55, 0.55, 0.55, 0.35)
-            shell = color(0.45, 0.45, 0.45, 0.35)
+            body = color(0.52, 0.52, 0.58, 0.25)
+            shell = color(0.42, 0.42, 0.48, 0.25)
         }
 
+        _ = alphaMultiplier
+
         // Animation
-        let bounce: CGFloat = (state == .needsInput && frame % 2 == 1) ? 1.2 : 0
-        let legWiggle: CGFloat = (frame % 2 == 0) ? 0.8 : -0.8
-        let clawWave: CGFloat = (frame % 2 == 0) ? 0.0 : 1.0
+        let bounce: CGFloat = (state == .needsInput && frame % 2 == 1) ? 1.5 : 0
+        let legWiggle: CGFloat = (state == .working) ? ((frame % 2 == 0) ? 1.0 : -1.0) : 0
+        let clawWave: CGFloat = (state == .working) ? ((frame % 2 == 0) ? 0.0 : 1.2) : 0
+
+        // Apply scaling transform for needsInput (make crab smaller to fit badge)
+        ctx.saveGState()
+        if crabScale < 1.0 {
+            ctx.translateBy(x: w * (1 - crabScale) / 2 + crabOffX, y: crabOffY)
+            ctx.scaleBy(x: crabScale, y: crabScale)
+        }
 
         // --- Legs (3 pairs, behind body) ---
         ctx.setStrokeColor(body)
@@ -95,10 +111,8 @@ class CrabRenderer {
             let spread = w * (0.04 + fi * 0.025)
             let wig = (i % 2 == 0) ? legWiggle : -legWiggle
 
-            // Left
             ctx.move(to: CGPoint(x: w * 0.27, y: legY))
             ctx.addLine(to: CGPoint(x: w * 0.08 - spread + wig, y: legY - h * 0.07))
-            // Right
             ctx.move(to: CGPoint(x: w * 0.73, y: legY))
             ctx.addLine(to: CGPoint(x: w * 0.92 + spread - wig, y: legY - h * 0.07))
         }
@@ -107,7 +121,6 @@ class CrabRenderer {
         // --- Claws ---
         ctx.setFillColor(body)
 
-        // Left claw
         let lcx = w * 0.1
         let lcy = h * 0.48 + bounce + clawWave
         let lcp = CGMutablePath()
@@ -120,7 +133,6 @@ class CrabRenderer {
         ctx.addPath(lcp)
         ctx.fillPath()
 
-        // Right claw (mirrored)
         let rcx = w * 0.9
         let rcy = h * 0.48 + bounce + clawWave
         let rcp = CGMutablePath()
@@ -141,11 +153,10 @@ class CrabRenderer {
         let by = h * 0.24 + bounce
         ctx.fillEllipse(in: CGRect(x: bx, y: by, width: bw, height: bh))
 
-        // Shell highlight
         ctx.setFillColor(shell)
-        let sw = bw * 0.68
-        let sh = bh * 0.55
-        ctx.fillEllipse(in: CGRect(x: (w - sw) / 2, y: by + bh * 0.18, width: sw, height: sh))
+        let sw2 = bw * 0.68
+        let sh2 = bh * 0.55
+        ctx.fillEllipse(in: CGRect(x: (w - sw2) / 2, y: by + bh * 0.18, width: sw2, height: sh2))
 
         // --- Eye stalks ---
         ctx.setStrokeColor(body)
@@ -168,28 +179,41 @@ class CrabRenderer {
         let elx = eyeLX - w * 0.03
         let erx = eyeRX + w * 0.03
 
-        ctx.setFillColor(CGColor.white)
-        ctx.fillEllipse(in: CGRect(x: elx - er, y: stalkTop - er, width: er * 2, height: er * 2))
-        ctx.fillEllipse(in: CGRect(x: erx - er, y: stalkTop - er, width: er * 2, height: er * 2))
+        if state == .idle || state == .none {
+            // Closed eyes (half circles / lines)
+            ctx.setStrokeColor(color(0.35, 0.35, 0.4, 0.6))
+            ctx.setLineWidth(max(1, w * 0.05))
+            ctx.addArc(center: CGPoint(x: elx, y: stalkTop), radius: er * 0.7,
+                       startAngle: 0, endAngle: .pi, clockwise: false)
+            ctx.strokePath()
+            ctx.addArc(center: CGPoint(x: erx, y: stalkTop), radius: er * 0.7,
+                       startAngle: 0, endAngle: .pi, clockwise: false)
+            ctx.strokePath()
+        } else {
+            ctx.setFillColor(CGColor.white)
+            ctx.fillEllipse(in: CGRect(x: elx - er, y: stalkTop - er, width: er * 2, height: er * 2))
+            ctx.fillEllipse(in: CGRect(x: erx - er, y: stalkTop - er, width: er * 2, height: er * 2))
 
-        // Pupils
-        let pr = er * 0.45
-        let plook: CGFloat = (frame % 4 < 2) ? 0.2 : -0.2 // eyes look around
-        ctx.setFillColor(color(0.15, 0.1, 0.1).copy(alpha: 0.95)!)
-        ctx.fillEllipse(in: CGRect(x: elx - pr + plook, y: stalkTop - pr, width: pr * 2, height: pr * 2))
-        ctx.fillEllipse(in: CGRect(x: erx - pr + plook, y: stalkTop - pr, width: pr * 2, height: pr * 2))
+            let pr = er * 0.45
+            let plook: CGFloat = (frame % 4 < 2) ? 0.3 : -0.3
+            ctx.setFillColor(color(0.12, 0.08, 0.08))
+            ctx.fillEllipse(in: CGRect(x: elx - pr + plook, y: stalkTop - pr, width: pr * 2, height: pr * 2))
+            ctx.fillEllipse(in: CGRect(x: erx - pr + plook, y: stalkTop - pr, width: pr * 2, height: pr * 2))
+        }
 
         // --- Mouth ---
-        ctx.setStrokeColor(shell)
-        ctx.setLineWidth(max(0.5, w * 0.028))
-        ctx.setLineCap(.round)
-
         let mouthY = h * 0.33 + bounce
-        if state == .needsInput {
-            // Open mouth (surprised)
-            ctx.fillEllipse(in: CGRect(x: w * 0.46, y: mouthY - w * 0.03, width: w * 0.08, height: w * 0.06))
+        if state == .needsInput || state == .error {
+            // Open mouth (worried)
+            ctx.setFillColor(color(0.3, 0.05, 0.05, 0.8))
+            ctx.fillEllipse(in: CGRect(x: w * 0.45, y: mouthY - w * 0.035, width: w * 0.1, height: w * 0.07))
+        } else if state == .idle || state == .none {
+            // No mouth (sleeping)
+            () // intentionally blank
         } else {
-            // Smile
+            ctx.setStrokeColor(shell)
+            ctx.setLineWidth(max(0.5, w * 0.028))
+            ctx.setLineCap(.round)
             ctx.addArc(
                 center: CGPoint(x: w * 0.5, y: mouthY),
                 radius: w * 0.055,
@@ -200,24 +224,85 @@ class CrabRenderer {
             ctx.strokePath()
         }
 
-        // --- "Zzz" for idle ---
-        if state == .idle {
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: max(5, w * 0.28), weight: .bold),
-                .foregroundColor: NSColor(red: 0.4, green: 0.4, blue: 0.8, alpha: 0.8)
+        ctx.restoreGState()
+
+        // --- Overlays (drawn AFTER restoring transform, in full image coords) ---
+
+        // Working: animated activity sparkles
+        if state == .working {
+            let sparkleColor = color(1.0, 0.85, 0.3, 0.9)
+            ctx.setFillColor(sparkleColor)
+            let sparkleR: CGFloat = max(1, w * 0.04)
+            let positions: [(CGFloat, CGFloat)] = [
+                (0.82, 0.78), (0.88, 0.62), (0.78, 0.9)
             ]
-            let zStr = NSAttributedString(string: "z", attributes: attrs)
-            zStr.draw(at: NSPoint(x: w * 0.7, y: h * 0.68))
+            let activeIdx = frame % 3
+            for (i, pos) in positions.enumerated() {
+                let alpha: CGFloat = (i == activeIdx) ? 1.0 : 0.3
+                ctx.setFillColor(color(1.0, 0.85, 0.3, alpha))
+                ctx.fillEllipse(in: CGRect(
+                    x: w * pos.0 - sparkleR, y: h * pos.1 - sparkleR,
+                    width: sparkleR * 2, height: sparkleR * 2
+                ))
+            }
         }
 
-        // --- "!" for needs input ---
-        if state == .needsInput && frame % 2 == 0 {
-            let attrs: [NSAttributedString.Key: Any] = [
+        // Idle: "Zzz" text
+        if state == .idle || state == .none {
+            let zAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: max(6, w * 0.35), weight: .heavy),
-                .foregroundColor: NSColor(red: 1, green: 0.9, blue: 0, alpha: 1)
+                .foregroundColor: NSColor(red: 0.35, green: 0.35, blue: 0.7, alpha: 0.85)
             ]
-            let eStr = NSAttributedString(string: "!", attributes: attrs)
-            eStr.draw(at: NSPoint(x: w * 0.72, y: h * 0.6))
+            let z1 = NSAttributedString(string: "z", attributes: zAttrs)
+            z1.draw(at: NSPoint(x: w * 0.65, y: h * 0.55))
+            let z2Attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: max(4, w * 0.25), weight: .bold),
+                .foregroundColor: NSColor(red: 0.35, green: 0.35, blue: 0.7, alpha: 0.6)
+            ]
+            let z2 = NSAttributedString(string: "z", attributes: z2Attrs)
+            z2.draw(at: NSPoint(x: w * 0.78, y: h * 0.72))
+        }
+
+        // Needs input / error: red notification badge with "!"
+        if state == .needsInput || state == .error {
+            let badgeR = w * 0.22
+            let badgeCX = w * 0.82
+            let badgeCY = h * 0.78
+
+            // Badge shadow
+            ctx.setFillColor(color(0, 0, 0, 0.2))
+            ctx.fillEllipse(in: CGRect(
+                x: badgeCX - badgeR + 0.5, y: badgeCY - badgeR - 0.5,
+                width: badgeR * 2, height: badgeR * 2
+            ))
+
+            // Badge circle
+            let badgeFill = (state == .error) ? color(0.9, 0.15, 0.5) : color(1.0, 0.15, 0.15)
+            ctx.setFillColor(badgeFill)
+            ctx.fillEllipse(in: CGRect(
+                x: badgeCX - badgeR, y: badgeCY - badgeR,
+                width: badgeR * 2, height: badgeR * 2
+            ))
+
+            // White border
+            ctx.setStrokeColor(CGColor.white)
+            ctx.setLineWidth(max(0.8, w * 0.03))
+            ctx.strokeEllipse(in: CGRect(
+                x: badgeCX - badgeR, y: badgeCY - badgeR,
+                width: badgeR * 2, height: badgeR * 2
+            ))
+
+            // "!" text in badge
+            let bangAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: max(7, badgeR * 1.5), weight: .heavy),
+                .foregroundColor: NSColor.white
+            ]
+            let bang = NSAttributedString(string: "!", attributes: bangAttrs)
+            let bangSize = bang.size()
+            bang.draw(at: NSPoint(
+                x: badgeCX - bangSize.width / 2,
+                y: badgeCY - bangSize.height / 2
+            ))
         }
     }
 }
@@ -379,31 +464,45 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func addSessionItems(_ session: CrabSession) {
-        let icon: String
+        let dot: String
         let label: String
+        let dotColor: NSColor
+        let labelWeight: NSFont.Weight
 
         switch session.status {
-        case "working":         icon = ""; label = "working"
-        case "needs_input":     icon = ""; label = "needs input"
-        case "needs_permission": icon = ""; label = "needs permission"
-        case "idle":            icon = ""; label = "idle"
-        case "error":           icon = ""; label = "error"
-        default:                icon = ""; label = session.status
+        case "working":
+            dot = "\u{25CF}"; label = "WORKING"; dotColor = NSColor.systemGreen; labelWeight = .semibold
+        case "needs_input":
+            dot = "\u{25CF}"; label = "WAITING FOR INPUT"; dotColor = NSColor.systemRed; labelWeight = .bold
+        case "needs_permission":
+            dot = "\u{25CF}"; label = "NEEDS PERMISSION"; dotColor = NSColor.systemOrange; labelWeight = .bold
+        case "idle":
+            dot = "\u{25CB}"; label = "idle"; dotColor = NSColor.tertiaryLabelColor; labelWeight = .regular
+        case "error":
+            dot = "\u{25CF}"; label = "ERROR"; dotColor = NSColor.systemPink; labelWeight = .bold
+        default:
+            dot = "\u{25CB}"; label = session.status; dotColor = NSColor.secondaryLabelColor; labelWeight = .regular
         }
-        _ = icon // status shown via crab image
 
         let dirName = (session.cwd as NSString).lastPathComponent
         let crabState = stateFor(session.status)
 
-        let item = NSMenuItem(title: "\(session.name)  \u{2014}  \(dirName)", action: nil, keyEquivalent: "")
+        let item = NSMenuItem(title: "\(session.name) \(dirName)", action: nil, keyEquivalent: "")
         item.isEnabled = false
         item.image = CrabRenderer.createImage(size: 16, frame: animFrame, state: crabState)
 
-        // Styled title with status
+        // Build attributed title: "● Name  dir  STATUS"
         let main = NSMutableAttributedString(
+            string: "\(dot) ",
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 14),
+                .foregroundColor: dotColor
+            ]
+        )
+        main.append(NSAttributedString(
             string: "\(session.name)",
             attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .medium)]
-        )
+        ))
         main.append(NSAttributedString(
             string: "  \(dirName)  ",
             attributes: [
@@ -411,19 +510,11 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
                 .foregroundColor: NSColor.secondaryLabelColor
             ]
         ))
-        let badgeColor: NSColor
-        switch crabState {
-        case .working:    badgeColor = NSColor.systemGreen
-        case .needsInput: badgeColor = NSColor.systemRed
-        case .error:      badgeColor = NSColor.systemPink
-        case .idle:       badgeColor = NSColor.systemGray
-        case .none:       badgeColor = NSColor.systemGray
-        }
         main.append(NSAttributedString(
             string: label,
             attributes: [
-                .font: NSFont.systemFont(ofSize: 10, weight: .medium),
-                .foregroundColor: badgeColor
+                .font: NSFont.systemFont(ofSize: 11, weight: labelWeight),
+                .foregroundColor: dotColor
             ]
         ))
         item.attributedTitle = main
@@ -433,7 +524,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         let detail = NSMenuItem(title: session.cwd, action: nil, keyEquivalent: "")
         detail.isEnabled = false
         detail.attributedTitle = NSAttributedString(
-            string: "    \(session.cwd)",
+            string: "      \(session.cwd)",
             attributes: [
                 .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
                 .foregroundColor: NSColor.tertiaryLabelColor
