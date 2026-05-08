@@ -81,3 +81,23 @@
 **Consequences:**
 - Drawing code is verbose (~250 lines)
 - Visual changes require code modifications rather than asset swaps
+
+## ADR-6: Dynamic Island Panel over Status Bar Item
+
+**Context:** The status bar icon + dropdown menu approach limits visual possibilities. The 18x18 icon is too small for rich animation, and NSMenu doesn't support smooth transitions or custom animations. Users want a more visually appealing, modern UI similar to the Dynamic Island concept.
+
+**Decision:** Replace the NSStatusBar item and NSMenu dropdown with a floating NSPanel positioned near the top of the screen.
+
+**Rationale:**
+- NSPanel with `.nonactivatingPanel` style doesn't steal focus from the user's active app
+- Full control over rendering: custom backgrounds, animations, layout
+- Core Animation layer-backed views enable smooth expand/collapse morphing
+- NSVisualEffectView provides native vibrancy and translucency
+- The panel can be any size, enabling richer session information display
+- Smooth spring animations for state transitions (impossible with NSMenu)
+
+**Consequences:**
+- More complex window management code (positioning, click-outside handling, screen tracking)
+- The app no longer has a persistent menu bar presence (trades familiarity for aesthetics)
+- Must handle edge cases: multiple displays, full-screen apps, Mission Control
+- Larger rendering surface means slightly more GPU usage (still negligible)
