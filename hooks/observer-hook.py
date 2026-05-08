@@ -29,6 +29,7 @@ session_id = data.get("session_id", "unknown")
 cwd = data.get("cwd", "")
 event = data.get("hook_event_name", "unknown")
 notification_type = data.get("notification_type", "")
+tmux_pane = os.environ.get("TMUX_PANE", "")
 
 session_file = os.path.join(STATE_DIR, f"{session_id}.json")
 timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -64,7 +65,10 @@ def ensure_session():
             "pid": os.getppid(),
             "started_at": timestamp,
             "last_activity": timestamp,
+            "tmux_pane": tmux_pane,
         }
+    if tmux_pane and not session.get("tmux_pane"):
+        session["tmux_pane"] = tmux_pane
     return session
 
 
@@ -77,6 +81,7 @@ if event == "SessionStart":
         "pid": os.getppid(),
         "started_at": timestamp,
         "last_activity": timestamp,
+        "tmux_pane": tmux_pane,
     }
     write_session(session)
 
@@ -109,6 +114,14 @@ elif event == "StopFailure":
     write_session(session)
     os.system("afplay /System/Library/Sounds/Basso.aiff &")
 
+elif event == "PostToolUse":
+    session = ensure_session()
+    session["status"] = "working"
+    session["last_activity"] = timestamp
+    if cwd:
+        session["cwd"] = cwd
+    write_session(session)
+
 elif event == "Notification":
     session = ensure_session()
     was_working = session.get("status") in ("working", None)
@@ -118,6 +131,33 @@ elif event == "Notification":
     write_session(session)
     if was_working:
         os.system("afplay /System/Library/Sounds/Ping.aiff &")
+
+elif event == "PermissionRequest":
+    session = ensure_session()
+    was_working = session.get("status") in ("working", None)
+    session["status"] = "needs_permission"
+    session["last_activity"] = timestamp
+    write_session(session)
+    if was_working:
+        os.system("afplay /System/Library/Sounds/Ping.aiff &")
+
+elif event == "SubagentStart":
+    session = ensure_session()
+    session["status"] = "working"
+    session["last_activity"] = timestamp
+    if cwd:
+        session["cwd"] = cwd
+    write_session(session)
+
+elif event == "SubagentStop":
+    session = ensure_session()
+    session["last_activity"] = timestamp
+    write_session(session)
+
+elif event == "PreCompact":
+    session = ensure_session()
+    session["last_activity"] = timestamp
+    write_session(session)
 
 elif event == "SessionEnd":
     try:

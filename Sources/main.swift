@@ -34,12 +34,14 @@ struct CrabSession: Codable {
     let startedAt: String
     var lastActivity: String
     var notificationType: String?
+    var tmuxPane: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, cwd, status, pid
         case startedAt = "started_at"
         case lastActivity = "last_activity"
         case notificationType = "notification_type"
+        case tmuxPane = "tmux_pane"
     }
 }
 
@@ -515,8 +517,15 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         let dirName = (session.cwd as NSString).lastPathComponent
         let crabState = stateFor(session.status)
 
-        let item = NSMenuItem(title: "\(session.name) \(dirName)", action: nil, keyEquivalent: "")
-        item.isEnabled = false
+        let hasTmux = session.tmuxPane != nil && !session.tmuxPane!.isEmpty
+        let item = NSMenuItem(
+            title: "\(session.name) \(dirName)",
+            action: hasTmux ? #selector(focusSession(_:)) : nil,
+            keyEquivalent: ""
+        )
+        item.target = hasTmux ? self : nil
+        item.isEnabled = hasTmux
+        item.representedObject = session.tmuxPane
         item.image = CrabRenderer.createImage(size: 16, frame: animFrame, state: crabState)
 
         // Build attributed title: "● Name  dir  STATUS"
@@ -573,6 +582,37 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         case "idle":                             return .idle
         default:                                 return .none
         }
+    }
+
+    // MARK: - Focus Session
+
+    @objc private func focusSession(_ sender: NSMenuItem) {
+        guard let paneId = sender.representedObject as? String, !paneId.isEmpty else { return }
+
+        // Select the tmux window and pane
+        let selectWindow = Process()
+        selectWindow.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        selectWindow.arguments = ["tmux", "select-window", "-t", paneId]
+        selectWindow.standardOutput = FileHandle.nullDevice
+        selectWindow.standardError = FileHandle.nullDevice
+        try? selectWindow.run()
+        selectWindow.waitUntilExit()
+
+        let selectPane = Process()
+        selectPane.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        selectPane.arguments = ["tmux", "select-pane", "-t", paneId]
+        selectPane.standardOutput = FileHandle.nullDevice
+        selectPane.standardError = FileHandle.nullDevice
+        try? selectPane.run()
+        selectPane.waitUntilExit()
+
+        // Bring Ghostty to front
+        let activate = Process()
+        activate.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        activate.arguments = ["-e", "tell application \"Ghostty\" to activate"]
+        activate.standardOutput = FileHandle.nullDevice
+        activate.standardError = FileHandle.nullDevice
+        try? activate.run()
     }
 
     // MARK: - Notifications

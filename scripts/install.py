@@ -63,17 +63,24 @@ def configure_hooks():
     hook_script = os.path.join(OBSERVER_DIR, "hooks", "observer-hook.py")
     hook_cmd = f"python3 {hook_script}"
 
-    hook_entry = {"hooks": [{"type": "command", "command": hook_cmd}]}
+    hook = {"type": "command", "command": hook_cmd}
+    hook_with_timeout = {"type": "command", "command": hook_cmd, "timeout": 86400}
 
-    events = [
-        "SessionStart",
-        "SessionEnd",
-        "UserPromptSubmit",
-        "PreToolUse",
-        "Stop",
-        "StopFailure",
-        "Notification",
-    ]
+    # Events that use matchers need "matcher": "*" to match all tools/notifications
+    events = {
+        "SessionStart":     {"hooks": [hook]},
+        "SessionEnd":       {"hooks": [hook]},
+        "UserPromptSubmit": {"hooks": [hook]},
+        "Stop":             {"hooks": [hook]},
+        "StopFailure":      {"hooks": [hook]},
+        "PreCompact":       {"hooks": [hook]},
+        "SubagentStart":    {"hooks": [hook]},
+        "SubagentStop":     {"hooks": [hook]},
+        "PreToolUse":       {"matcher": "*", "hooks": [hook]},
+        "PostToolUse":      {"matcher": "*", "hooks": [hook]},
+        "Notification":     {"matcher": "*", "hooks": [hook]},
+        "PermissionRequest": {"matcher": "*", "hooks": [hook_with_timeout]},
+    }
 
     # Read existing settings
     settings = {}
@@ -85,7 +92,7 @@ def configure_hooks():
         settings["hooks"] = {}
 
     added = []
-    for event in events:
+    for event, hook_entry in events.items():
         if event not in settings["hooks"]:
             settings["hooks"][event] = []
 
