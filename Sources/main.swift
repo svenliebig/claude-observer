@@ -1068,9 +1068,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         let responseFile = kStateDir.appendingPathComponent("\(session.id).response.json")
         let response: [String: String] = ["decision": decision]
         guard let data = try? JSONSerialization.data(withJSONObject: response) else { return }
-        let tmpFile = kStateDir.appendingPathComponent("\(session.id).response.json.tmp")
-        try? data.write(to: tmpFile)
-        try? FileManager.default.moveItem(at: tmpFile, to: responseFile)
+        try? data.write(to: responseFile, options: .atomic)
 
         // Immediate local feedback
         if var s = sessions[session.id] {

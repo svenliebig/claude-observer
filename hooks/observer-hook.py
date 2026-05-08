@@ -148,6 +148,11 @@ elif event == "PostToolUse":
 
 elif event == "Notification":
     session = ensure_session()
+    # Don't overwrite an active permission request
+    if session.get("status") == "needs_permission":
+        # debug_log(f"Notification: skipped (status=needs_permission) session={session_id}")
+        sys.exit(0)
+    # debug_log(f"Notification: session={session_id} status->{session.get('status')}")
     was_working = session.get("status") in ("working", None)
     session["status"] = "needs_input"
     session["notification_type"] = notification_type
@@ -157,6 +162,7 @@ elif event == "Notification":
         os.system("afplay /System/Library/Sounds/Ping.aiff &")
 
 elif event == "PermissionRequest":
+    # debug_log(f"PermissionRequest: session={session_id} tool={data.get('tool_name', '?')}")
     session = ensure_session()
     was_working = session.get("status") in ("working", None)
     session["status"] = "needs_permission"
@@ -170,6 +176,7 @@ elif event == "PermissionRequest":
         "tool_summary": tool_summary,
     }
     write_session(session)
+    # debug_log(f"  wrote session with needs_permission")
 
     if was_working:
         os.system("afplay /System/Library/Sounds/Ping.aiff &")
@@ -181,17 +188,26 @@ elif event == "PermissionRequest":
     except FileNotFoundError:
         pass
 
+    perm_data = {
+        "tool_name": tool_name,
+        "tool_summary": tool_summary,
+    }
+
     start = time.time()
     while time.time() - start < 120:
         if os.path.exists(response_file):
+            # debug_log(f"  response file found after {poll_count} polls")
             try:
                 with open(response_file) as f:
                     response = json.load(f)
                 os.remove(response_file)
-            except Exception:
+                # debug_log(f"  response: {response}")
+            except Exception as e:
+                # debug_log(f"  FAILED to read response: {e}")
                 break
 
             decision = response.get("decision", "allow")
+            # debug_log(f"  decision: {decision}")
 
             # Clear permission request from session
             session = read_session()
@@ -203,20 +219,28 @@ elif event == "PermissionRequest":
                 )
                 write_session(session)
 
-            if decision == "deny":
-                sys.stderr.write("Denied via Claude Observer\n")
-                sys.exit(2)
-
             output = {
                 "hookSpecificOutput": {
                     "hookEventName": "PermissionRequest",
-                    "decision": {"behavior": "allow"},
+                    "decision": {"behavior": decision if decision == "deny" else "allow"},
                 }
             }
             if decision == "always_allow":
                 output["hookSpecificOutput"]["decision"]["permissionRule"] = tool_name
+            # debug_log(f"  -> exit 0 with output: {output}")
             json.dump(output, sys.stdout)
             sys.exit(0)
+
+        # Re-assert permission status if overwritten by a concurrent event
+        current = read_session()
+        if current and (
+            current.get("status") != "needs_permission"
+            or "permission_request" not in current
+        ):
+            # debug_log(f"  re-assert: status was '{current.get('status')}', fixing")
+            current["status"] = "needs_permission"
+            current["permission_request"] = perm_data
+            write_session(current)
 
         time.sleep(0.5)
 

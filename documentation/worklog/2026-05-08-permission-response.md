@@ -34,9 +34,23 @@ Allow users to see which permission a Claude instance is asking for and respond 
 - Immediate local state update on button click for instant UI feedback
 - Variable row height support in drawing, hit testing, and frame calculations
 
+## Bugs Fixed During Testing
+
+### Notification race condition
+The `Notification` event fires concurrently with `PermissionRequest`, overwriting `needs_permission` status to `needs_input`. Fixed by:
+1. Notification handler exits early if status is already `needs_permission`
+2. PermissionRequest polling loop re-asserts permission status every 0.5s if overwritten
+
+### Response file write failure
+`FileManager.moveItem` fails silently when destination exists. Replaced with `data.write(to:options:.atomic)` which atomically replaces.
+
+### Deny not working
+Exit code 2 is a "hook error" causing Claude to fall through to its terminal prompt. Fixed by outputting `{"behavior": "deny"}` as JSON on stdout (exit 0) instead.
+
 ## Decisions
 
 - **File-based response**: response files (`{id}.response.json`) extend the existing file-based IPC pattern
 - **120s timeout**: if user doesn't respond, hook exits and Claude shows its normal terminal prompt
 - **"Always" uses tool name as permission rule**: matches Claude Code's built-in always-allow behavior (e.g., `Bash` allows all bash commands)
 - **Immediate local feedback**: Swift app updates in-memory session state instantly on button click rather than waiting for next poll cycle
+- **Deny via JSON, not exit code**: `{"behavior": "deny"}` on stdout works; exit code 2 is a hook error, not a permission denial

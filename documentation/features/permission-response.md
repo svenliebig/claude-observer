@@ -32,7 +32,7 @@ Possible decisions: `"allow"`, `"deny"`, `"always_allow"`
 The hook translates the response into Claude Code's expected format:
 
 - **allow**: `{"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "allow"}}}`
-- **deny**: exit code 2 (stderr: "Denied via Claude Observer")
+- **deny**: `{"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "deny"}}}`
 - **always_allow**: `{"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "allow", "permissionRule": "<ToolName>"}}}`
 
 ### Timeout
