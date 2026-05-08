@@ -510,7 +510,8 @@ class IslandView: NSView {
         let statusTextColor: NSColor
         switch state {
         case .working:
-            statusText = sessions.count == 1 ? "Working" : "\(sessions.count) working"
+            let workingCount = sessions.filter({ $0.status == "working" }).count
+            statusText = workingCount == 1 ? "Working" : "\(workingCount) working"
             statusTextColor = NSColor(white: 1, alpha: 0.9)
         case .needsInput:
             statusText = "Input needed"
@@ -519,7 +520,8 @@ class IslandView: NSView {
             statusText = "Error"
             statusTextColor = .systemPink
         case .idle:
-            statusText = sessions.count == 1 ? "Idle" : "\(sessions.count) idle"
+            let idleCount = sessions.filter({ $0.status == "idle" }).count
+            statusText = idleCount == 1 ? "Idle" : "\(idleCount) idle"
             statusTextColor = NSColor(white: 1, alpha: 0.5)
         case .none:
             statusText = "No sessions"
