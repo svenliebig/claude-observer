@@ -56,7 +56,6 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate
     - statusItem: NSStatusItem
     - menu: NSMenu
     - sessions: [String: CrabSession]
-    - notifiedSessions: Set<String>
     - animFrame: Int
     - animTimer: Timer
     - pollTimer: Timer
@@ -64,12 +63,11 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate
   Methods:
     - applicationDidFinishLaunching()    Setup and start timers
     - isDuplicate() -> Bool              Prevent multiple instances
-    - pollSessions()                     Read session files, cleanup stale, trigger notifications
+    - pollSessions()                     Read session files, cleanup stale
     - updateDisplay()                    Set status bar icon and title
     - rebuildMenu()                      Construct dropdown menu items
     - addSessionItems(session)           Render a single session entry
     - stateFor(status) -> CrabState      Map status string to enum
-    - sendNotification(session)          Send macOS notification via osascript
 ```
 
 ### Helper Functions

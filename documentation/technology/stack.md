@@ -35,7 +35,6 @@
 | macOS 12+ | Minimum OS version for AppKit APIs used |
 | Xcode Command Line Tools | `swiftc` compiler |
 | Python 3 | Hook script execution, install/uninstall scripts |
-| `osascript` | Desktop notifications via AppleScript |
 | `afplay` | Playing system sounds (Ping.aiff, Basso.aiff) |
 | `pgrep` | Duplicate instance detection |
 

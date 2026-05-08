@@ -8,7 +8,6 @@ Claude Observer is a macOS status bar application that visualizes running Claude
 |---------|-------------|
 | Animated Status Bar Crab | A pixel-art crab in the menu bar reflects the aggregate state of all sessions |
 | Session Dropdown Menu | Click the crab to see each session's name, directory, and status |
-| Desktop Notifications | Native macOS notification with sound when a session needs input |
 | Unique Crab Names | Each session gets a deterministic name (Pinchy, Clawdia, etc.) from a pool of 35 |
 | Stale Session Cleanup | Dead sessions are detected via PID checking and auto-removed after 5 minutes |
 | Zero Configuration | Single `make install` command sets up everything |

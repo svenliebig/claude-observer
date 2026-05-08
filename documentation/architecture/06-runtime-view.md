@@ -31,7 +31,6 @@ Claude Code                Hook Script              Filesystem              Stat
     |                          |                        |--- session data ------>|
     |                          |                        |                        |-- update icon (red)
     |                          |                        |                        |-- rebuild menu
-    |                          |                        |                        |-- osascript notification
 ```
 
 ## Scenario 2b: Session Needs Permission
@@ -50,7 +49,6 @@ Claude Code                Hook Script              Filesystem              Stat
     |                          |                        |--- session data ------>|
     |                          |                        |                        |-- update icon (orange)
     |                          |                        |                        |-- rebuild menu
-    |                          |                        |                        |-- osascript notification
 ```
 
 ## Scenario 3: Session End

@@ -637,7 +637,6 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
     private var visualEffectView: NSVisualEffectView!
     private var islandView: IslandView!
     private var sessions: [String: CrabSession] = [:]
-    private var notifiedSessions: Set<String> = []
     private var animFrame = 0
     private var animTimer: Timer?
     private var pollTimer: Timer?
@@ -823,18 +822,6 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
             updated[session.id] = session
         }
 
-        for (id, session) in updated {
-            let needsAttention = session.status == "needs_input" || session.status == "needs_permission"
-            if needsAttention && !notifiedSessions.contains(id) {
-                sendNotification(session: session)
-                notifiedSessions.insert(id)
-            }
-            if session.status == "working" {
-                notifiedSessions.remove(id)
-            }
-        }
-
-        notifiedSessions = notifiedSessions.intersection(Set(updated.keys))
         sessions = updated
         updateDisplay()
     }
@@ -959,27 +946,6 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         try? activate.run()
     }
 
-    // MARK: - Notifications
-
-    private func sendNotification(session: CrabSession) {
-        let title = "\(session.name) needs your attention!"
-        let body = (session.cwd as NSString).lastPathComponent
-
-        let safeTitle = title
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-        let safeBody = body
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-
-        let script = "display notification \"\(safeBody)\" with title \"\(safeTitle)\" sound name \"Ping\""
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        proc.arguments = ["-e", script]
-        proc.standardOutput = FileHandle.nullDevice
-        proc.standardError = FileHandle.nullDevice
-        try? proc.run()
-    }
 }
 
 // MARK: - Entry Point

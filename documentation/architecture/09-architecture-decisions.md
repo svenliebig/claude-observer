@@ -49,22 +49,21 @@
 - All code lives in one ~600-line file, which could become unwieldy if the app grows significantly
 - No package dependency management (acceptable since there are zero dependencies)
 
-## ADR-4: Notifications via osascript
+## ADR-4: Dynamic Island over System Notifications
 
-**Context:** The app needs to send native macOS notifications.
+**Context:** The app previously sent native macOS notifications via `osascript` when sessions needed input. After introducing the Dynamic Island UI (ADR-6), the system notification became redundant and caused a double-beep (one from the hook's `afplay` sound, one from the notification's sound).
 
-**Decision:** Use `osascript -e 'display notification ...'` instead of `UNUserNotificationCenter`.
+**Decision:** Remove `osascript` system notifications entirely. The Dynamic Island provides the visual alert; the hook script's `afplay` provides the audio alert.
 
 **Rationale:**
-- No notification permission prompts required
-- No app bundle or Info.plist needed
-- Works reliably for a CLI-compiled binary without code signing
-- Simpler implementation (single `Process` call)
+- Dynamic Island already surfaces attention-needed state prominently
+- Eliminates duplicate sound (notification Ping + hook Ping)
+- Reduces external process spawning (`osascript` no longer launched)
+- Simplifies the Swift app by removing notification tracking state
 
 **Consequences:**
-- No notification actions (buttons, reply fields)
-- No notification grouping or management
-- Notification customization limited to title, body, and sound
+- No notification center history (attention states are transient by nature)
+- Users must have the Dynamic Island visible to see alerts
 
 ## ADR-5: Programmatic Crab Drawing over Image Assets
 

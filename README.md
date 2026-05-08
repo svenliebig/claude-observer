@@ -8,7 +8,7 @@ Each Claude instance gets a unique crab name (Pinchy, Snippy, Clawdia...) and th
 
 - Animated crab in the status bar showing aggregate session state
 - Dropdown menu listing each Claude session with its crab name
-- Desktop notification with "ding" when a Claude needs your input
+- Sound alert when a Claude needs your input
 - Auto-cleanup of stale sessions
 - Per-session status: working, idle, needs input, needs permission, error
 
@@ -70,7 +70,7 @@ The status bar app polls this directory every 2 seconds and updates the display.
 | `UserPromptSubmit` | Marks session as "working" |
 | `Stop` | Marks session as "idle" |
 | `StopFailure` | Marks session as "error" |
-| `Notification` | Marks as "needs input" + plays ding |
+| `Notification` | Marks as "needs input" + plays sound |
 | `SessionEnd` | Removes session file |
 
 ## Requirements

@@ -25,7 +25,7 @@
          v
 +-------------------+
 |   macOS Menu Bar  |
-|   + Notifications |
+|   + Dynamic Island|
 +-------------------+
          |
          v
@@ -41,7 +41,6 @@
 |----------|-----------|-------------|
 | Claude Code | stdin JSON via hook system | Claude Code invokes the hook script with event data on stdin for each lifecycle event |
 | macOS Menu Bar | `NSStatusBar` API | The Swift app renders a status item with icon and dropdown menu |
-| macOS Notification Center | `osascript` (AppleScript) | Desktop notifications are sent via the `display notification` AppleScript command |
 | macOS Audio | `afplay` | System sounds are played for input-needed and error events |
 | Filesystem | JSON files | Session state is communicated between hook and app via JSON files |
 
@@ -56,7 +55,7 @@
 | - SessionStart        |---->| Writes/updates/deletes|---->| dir every 2s      |
 | - SessionEnd          |     | session JSON files    |     | Renders crab icon |
 | - UserPromptSubmit    |     | Plays sounds          |     | Builds menu       |
-| - PreToolUse          |     |                       |     | Sends notifications|
+| - PreToolUse          |     |                       |     |                   |
 | - PostToolUse         |     +-----------------------+     +-------------------+
 | - Stop                |
 | - StopFailure         |

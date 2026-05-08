@@ -15,6 +15,5 @@
 |------|-------------|----------|
 | Duplicated crab name list | The 35 crab names are defined in both `main.swift` and `observer-hook.py`. Changes must be kept in sync manually. | Low |
 | No automated tests | Neither the Swift app nor the Python hook script have unit tests. | Medium |
-| Notification via osascript | Using `osascript` for notifications is a workaround for the lack of an app bundle. A proper `UNUserNotificationCenter` integration would provide richer notification features. | Low |
 | No log output | The app produces no log files. Debugging requires adding print statements and running from a terminal. | Low |
 | PID-based stale detection | Checking if a PID is alive via `kill(pid, 0)` can produce false positives if the PID has been reused by a different process. The 5-minute timeout mitigates this. | Low |
