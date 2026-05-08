@@ -11,6 +11,7 @@ Clicking a session entry in the dropdown menu focuses the corresponding tmux pan
 3. When the user clicks a session menu item, the Swift app:
    - Runs `tmux select-window -t <pane_id>` to make the window containing the pane active
    - Runs `tmux select-pane -t <pane_id>` to select the specific pane
+   - Runs `tmux switch-client -t <pane_id>` to switch the most recently active tmux client to the session containing the pane (handles cross-session navigation)
    - Activates Ghostty via AppleScript to bring it to the foreground
 
 ### Requirements

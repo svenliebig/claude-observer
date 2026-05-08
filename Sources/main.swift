@@ -317,6 +317,128 @@ class CrabRenderer {
     }
 }
 
+// MARK: - Custom Menu Item View
+
+class SessionMenuItemView: NSView {
+    private let session: CrabSession
+    private let crabState: CrabState
+    private let animFrame: Int
+    private var isHovered = false
+    private let focusAction: (() -> Void)?
+
+    static let viewWidth: CGFloat = 340
+    static let viewHeight: CGFloat = 44
+
+    init(session: CrabSession, crabState: CrabState, animFrame: Int, focusAction: (() -> Void)?) {
+        self.session = session
+        self.crabState = crabState
+        self.animFrame = animFrame
+        self.focusAction = focusAction
+        super.init(frame: NSRect(x: 0, y: 0, width: Self.viewWidth, height: Self.viewHeight))
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        trackingAreas.forEach { removeTrackingArea($0) }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeAlways],
+            owner: self
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovered = true
+        needsDisplay = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        needsDisplay = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard focusAction != nil else { return }
+        focusAction?()
+        enclosingMenuItem?.menu?.cancelTracking()
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        if isHovered && focusAction != nil {
+            let inset = bounds.insetBy(dx: 5, dy: 1)
+            let hoverPath = NSBezierPath(roundedRect: inset, xRadius: 6, yRadius: 6)
+            NSColor(calibratedRed: 0.35, green: 0.55, blue: 0.9, alpha: 0.15).setFill()
+            hoverPath.fill()
+        }
+
+        let leftPadding: CGFloat = 14
+        let topLineY = bounds.height / 2 + 2
+        let bottomLineY = bounds.height / 2 - 13
+
+        // Crab icon
+        let crabImage = CrabRenderer.createImage(size: 16, frame: animFrame, state: crabState)
+        crabImage.draw(in: NSRect(x: leftPadding, y: topLineY - 2, width: 16, height: 16))
+
+        // Status dot
+        let (dotColor, statusText, statusColor) = statusInfo()
+        let dotSize: CGFloat = 7
+        dotColor.setFill()
+        NSBezierPath(ovalIn: NSRect(x: leftPadding + 22, y: topLineY + 3, width: dotSize, height: dotSize)).fill()
+
+        // Crab name
+        let textX = leftPadding + 34
+        let nameStr = NSAttributedString(string: session.name, attributes: [
+            .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+            .foregroundColor: NSColor.labelColor
+        ])
+        nameStr.draw(at: NSPoint(x: textX, y: topLineY))
+
+        // Directory name (short, after name)
+        let dirName = (session.cwd as NSString).lastPathComponent
+        let nameWidth = nameStr.size().width
+        let dirStr = NSAttributedString(string: dirName, attributes: [
+            .font: NSFont.systemFont(ofSize: 12, weight: .regular),
+            .foregroundColor: NSColor.tertiaryLabelColor
+        ])
+        dirStr.draw(at: NSPoint(x: textX + nameWidth + 8, y: topLineY + 1))
+
+        // Status label (right-aligned)
+        let statusStr = NSAttributedString(string: statusText, attributes: [
+            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .foregroundColor: statusColor
+        ])
+        let statusWidth = statusStr.size().width
+        statusStr.draw(at: NSPoint(x: bounds.width - statusWidth - 14, y: topLineY + 1))
+
+        // Full path on second line
+        let displayPath = abbreviatePath(session.cwd)
+        let pathStr = NSAttributedString(string: displayPath, attributes: [
+            .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+            .foregroundColor: NSColor.secondaryLabelColor
+        ])
+        pathStr.draw(at: NSPoint(x: textX, y: bottomLineY))
+    }
+
+    private func statusInfo() -> (NSColor, String, NSColor) {
+        switch session.status {
+        case "working":
+            return (NSColor.systemGreen, "WORKING", NSColor.systemGreen)
+        case "needs_input":
+            return (NSColor.systemRed, "WAITING FOR INPUT", NSColor.systemOrange)
+        case "needs_permission":
+            return (NSColor.systemOrange, "NEEDS PERMISSION", NSColor.systemOrange)
+        case "idle":
+            return (NSColor.tertiaryLabelColor, "idle", NSColor.tertiaryLabelColor)
+        case "error":
+            return (NSColor.systemPink, "ERROR", NSColor.systemPink)
+        default:
+            return (NSColor.tertiaryLabelColor, session.status, NSColor.tertiaryLabelColor)
+        }
+    }
+}
+
 // MARK: - App Delegate
 
 class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
@@ -474,104 +596,23 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func addSessionItems(_ session: CrabSession) {
-        let dot: String
-        let label: String
-        let dotColor: NSColor
-        let labelColor: NSColor
-        let labelWeight: NSFont.Weight
-
-        // High-contrast explicit colors that work on translucent menu backgrounds
-        switch session.status {
-        case "working":
-            dot = "\u{25CF}"; label = "WORKING"
-            dotColor = NSColor(red: 0.1, green: 0.6, blue: 0.2, alpha: 1)
-            labelColor = NSColor(red: 0.1, green: 0.55, blue: 0.15, alpha: 1)
-            labelWeight = .bold
-        case "needs_input":
-            dot = "\u{25CF}"; label = "WAITING FOR INPUT"
-            dotColor = NSColor(red: 0.85, green: 0.1, blue: 0.1, alpha: 1)
-            labelColor = NSColor(red: 0.8, green: 0.05, blue: 0.05, alpha: 1)
-            labelWeight = .heavy
-        case "needs_permission":
-            dot = "\u{25CF}"; label = "NEEDS PERMISSION"
-            dotColor = NSColor(red: 0.85, green: 0.45, blue: 0.0, alpha: 1)
-            labelColor = NSColor(red: 0.8, green: 0.4, blue: 0.0, alpha: 1)
-            labelWeight = .bold
-        case "idle":
-            dot = "\u{25CB}"; label = "idle"
-            dotColor = NSColor(red: 0.45, green: 0.45, blue: 0.5, alpha: 1)
-            labelColor = NSColor(red: 0.45, green: 0.45, blue: 0.5, alpha: 1)
-            labelWeight = .medium
-        case "error":
-            dot = "\u{25CF}"; label = "ERROR"
-            dotColor = NSColor(red: 0.75, green: 0.1, blue: 0.35, alpha: 1)
-            labelColor = NSColor(red: 0.7, green: 0.05, blue: 0.3, alpha: 1)
-            labelWeight = .bold
-        default:
-            dot = "\u{25CB}"; label = session.status
-            dotColor = NSColor(red: 0.45, green: 0.45, blue: 0.5, alpha: 1)
-            labelColor = NSColor(red: 0.45, green: 0.45, blue: 0.5, alpha: 1)
-            labelWeight = .medium
-        }
-
-        let dirName = (session.cwd as NSString).lastPathComponent
         let crabState = stateFor(session.status)
-
         let hasTmux = session.tmuxPane != nil && !session.tmuxPane!.isEmpty
-        let item = NSMenuItem(
-            title: "\(session.name) \(dirName)",
-            action: hasTmux ? #selector(focusSession(_:)) : nil,
-            keyEquivalent: ""
-        )
-        item.target = hasTmux ? self : nil
-        item.isEnabled = hasTmux
-        item.representedObject = session.tmuxPane
-        item.image = CrabRenderer.createImage(size: 16, frame: animFrame, state: crabState)
 
-        // Build attributed title: "● Name  dir  STATUS"
-        let main = NSMutableAttributedString(
-            string: "\(dot) ",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 14),
-                .foregroundColor: dotColor
-            ]
+        let focusAction: (() -> Void)? = hasTmux ? { [weak self] in
+            self?.focusTmuxPane(session.tmuxPane!)
+        } : nil
+
+        let view = SessionMenuItemView(
+            session: session,
+            crabState: crabState,
+            animFrame: animFrame,
+            focusAction: focusAction
         )
-        main.append(NSAttributedString(
-            string: "\(session.name)",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
-                .foregroundColor: NSColor.labelColor
-            ]
-        ))
-        main.append(NSAttributedString(
-            string: "  \(dirName)  ",
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 12),
-                .foregroundColor: NSColor(red: 0.35, green: 0.35, blue: 0.4, alpha: 1)
-            ]
-        ))
-        main.append(NSAttributedString(
-            string: label,
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 11, weight: labelWeight),
-                .foregroundColor: labelColor
-            ]
-        ))
-        item.attributedTitle = main
+
+        let item = NSMenuItem()
+        item.view = view
         menu.addItem(item)
-
-        // Detail row: path with ~ for home directory
-        let displayPath = abbreviatePath(session.cwd)
-        let detail = NSMenuItem(title: displayPath, action: nil, keyEquivalent: "")
-        detail.isEnabled = false
-        detail.attributedTitle = NSAttributedString(
-            string: "      \(displayPath)",
-            attributes: [
-                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
-                .foregroundColor: NSColor(red: 0.4, green: 0.4, blue: 0.45, alpha: 1)
-            ]
-        )
-        menu.addItem(detail)
     }
 
     private func stateFor(_ status: String) -> CrabState {
@@ -586,10 +627,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Focus Session
 
-    @objc private func focusSession(_ sender: NSMenuItem) {
-        guard let paneId = sender.representedObject as? String, !paneId.isEmpty else { return }
-
-        // Select the tmux window and pane
+    private func focusTmuxPane(_ paneId: String) {
         let selectWindow = Process()
         selectWindow.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         selectWindow.arguments = ["tmux", "select-window", "-t", paneId]
@@ -606,7 +644,14 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         try? selectPane.run()
         selectPane.waitUntilExit()
 
-        // Bring Ghostty to front
+        let switchClient = Process()
+        switchClient.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        switchClient.arguments = ["tmux", "switch-client", "-t", paneId]
+        switchClient.standardOutput = FileHandle.nullDevice
+        switchClient.standardError = FileHandle.nullDevice
+        try? switchClient.run()
+        switchClient.waitUntilExit()
+
         let activate = Process()
         activate.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         activate.arguments = ["-e", "tell application \"Ghostty\" to activate"]
