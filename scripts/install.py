@@ -69,6 +69,7 @@ def configure_hooks():
         "SessionStart",
         "SessionEnd",
         "UserPromptSubmit",
+        "PreToolUse",
         "Stop",
         "StopFailure",
         "Notification",

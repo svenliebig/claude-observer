@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Observer - Cute Crabs for Your Claude Code Sessions</title>
+  <meta name="description" content="A macOS status bar app that shows your running Claude Code sessions as cute little crabs.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c0e14;
+      --bg-card: #14171f;
+      --bg-card-hover: #1a1e28;
+      --border: #1e2330;
+      --text: #e4e6ed;
+      --text-dim: #8b8fa3;
+      --accent: #ff7033;
+      --accent-glow: rgba(255, 112, 51, 0.15);
+      --red: #ff3b3b;
+      --green: #34c759;
+      --pink: #ff3b82;
+      --blue: #5b7fff;
+      --yellow: #ffcc33;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* Subtle grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* --- NAV --- */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(12, 14, 20, 0.8);
+      border-bottom: 1px solid var(--border);
+    }
+    nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 16px;
+      text-decoration: none;
+      color: var(--text);
+    }
+    .nav-crab { font-size: 22px; }
+    .nav-links { display: flex; gap: 28px; }
+    .nav-links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* --- HERO --- */
+    .hero {
+      padding: 160px 0 100px;
+      text-align: center;
+      position: relative;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 400px;
+      background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--text-dim);
+      margin-bottom: 28px;
+    }
+    .hero-badge span { color: var(--accent); }
+    .hero h1 {
+      font-size: clamp(40px, 7vw, 72px);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+    .hero h1 .accent { color: var(--accent); }
+    .hero p {
+      font-size: 18px;
+      color: var(--text-dim);
+      max-width: 540px;
+      margin: 0 auto 40px;
+      line-height: 1.7;
+    }
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      font-size: 15px;
+      border-radius: 10px;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 24px rgba(255, 112, 51, 0.3);
+    }
+    .hero-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 32px rgba(255, 112, 51, 0.4);
+    }
+    .hero-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: transparent;
+      color: var(--text-dim);
+      font-weight: 500;
+      font-size: 15px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      text-decoration: none;
+      margin-left: 12px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .hero-secondary:hover {
+      border-color: var(--text-dim);
+      color: var(--text);
+    }
+
+    /* --- ANIMATED CRAB HERO --- */
+    .hero-visual {
+      margin-top: 60px;
+      position: relative;
+    }
+    .menubar-mockup {
+      max-width: 680px;
+      margin: 0 auto;
+      background: rgba(30, 33, 44, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03);
+    }
+    .menubar-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: rgba(20, 23, 31, 0.9);
+      border-bottom: 1px solid var(--border);
+    }
+    .menubar-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .menubar-dots span {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+    .menubar-title {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-weight: 500;
+    }
+    .menubar-icon {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .menubar-body {
+      padding: 8px 0;
+    }
+    .menu-header {
+      padding: 8px 16px 4px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .menu-sep {
+      height: 1px;
+      background: var(--border);
+      margin: 6px 0;
+    }
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 16px;
+    }
+    .menu-item-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .menu-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .menu-item-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .menu-item-name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .menu-item-dir {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .menu-item-status {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .status-working { color: var(--green); }
+    .status-input { color: var(--red); }
+    .status-idle { color: var(--text-dim); }
+    .status-error { color: var(--pink); }
+    .menu-item-path {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: rgba(139, 143, 163, 0.6);
+      margin-top: 1px;
+    }
+    .menu-quit {
+      padding: 7px 16px;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+
+    /* --- CRAB SVGs --- */
+    .crab-svg { display: inline-block; }
+
+    @keyframes wiggle-legs {
+      0%, 100% { transform: rotate(-3deg); }
+      50% { transform: rotate(3deg); }
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-2px); }
+    }
+    @keyframes sparkle {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 1; }
+    }
+    @keyframes zzz {
+      0%, 100% { opacity: 0.4; transform: translateY(0); }
+      50% { opacity: 0.9; transform: translateY(-3px); }
+    }
+    @keyframes pulse-badge {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+    }
+    @keyframes look {
+      0%, 40% { transform: translateX(0); }
+      50%, 90% { transform: translateX(1px); }
+    }
+    .crab-working .crab-legs { animation: wiggle-legs 0.5s ease-in-out infinite; transform-origin: center; }
+    .crab-working .crab-sparkle { animation: sparkle 0.6s ease-in-out infinite; }
+    .crab-working .crab-sparkle:nth-child(2) { animation-delay: 0.2s; }
+    .crab-working .crab-sparkle:nth-child(3) { animation-delay: 0.4s; }
+    .crab-working .crab-pupils { animation: look 2s ease-in-out infinite; }
+
+    .crab-input { animation: bounce 0.4s ease-in-out infinite; }
+    .crab-input .crab-badge { animation: pulse-badge 0.6s ease-in-out infinite; }
+
+    .crab-idle .crab-zzz { animation: zzz 2s ease-in-out infinite; }
+    .crab-idle .crab-zzz:nth-child(2) { animation-delay: 0.6s; }
+
+    /* --- SECTION SHARED --- */
+    section { padding: 80px 0; }
+    .section-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+    .section-desc {
+      font-size: 16px;
+      color: var(--text-dim);
+      max-width: 560px;
+      line-height: 1.7;
+    }
+
+    /* --- FEATURES --- */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 48px;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .feature-card:hover {
+      border-color: rgba(255, 112, 51, 0.2);
+      background: var(--bg-card-hover);
+    }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+    .feature-icon.orange { background: rgba(255, 112, 51, 0.12); }
+    .feature-icon.red { background: rgba(255, 59, 59, 0.12); }
+    .feature-icon.green { background: rgba(52, 199, 89, 0.12); }
+    .feature-icon.blue { background: rgba(91, 127, 255, 0.12); }
+    .feature-icon.pink { background: rgba(255, 59, 130, 0.12); }
+    .feature-icon.yellow { background: rgba(255, 204, 51, 0.12); }
+    .feature-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* --- CRAB STATES --- */
+    .states-section { padding-bottom: 40px; }
+    .states-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 48px;
+    }
+    .state-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px 24px;
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .state-card:hover {
+      border-color: rgba(255, 112, 51, 0.15);
+      background: var(--bg-card-hover);
+    }
+    .state-crab {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    .state-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .state-card p {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    /* --- HOW IT WORKS --- */
+    .how-section {
+      border-top: 1px solid var(--border);
+      padding-top: 80px;
+    }
+    .how-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      margin-top: 48px;
+      align-items: start;
+    }
+    .how-diagram {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+    }
+    .how-step {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .how-step:last-child { margin-bottom: 0; }
+    .how-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(255, 112, 51, 0.1);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .how-step h4 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .how-step p {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* Flow diagram */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .flow-node {
+      background: rgba(255, 112, 51, 0.06);
+      border: 1px solid rgba(255, 112, 51, 0.15);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .flow-node code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--accent);
+      background: rgba(255, 112, 51, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .flow-arrow {
+      display: flex;
+      justify-content: center;
+      padding: 4px 0;
+      color: var(--text-dim);
+      font-size: 16px;
+      opacity: 0.4;
+    }
+    .flow-node.file-node {
+      background: rgba(91, 127, 255, 0.06);
+      border-color: rgba(91, 127, 255, 0.15);
+    }
+    .flow-node.file-node code {
+      color: var(--blue);
+      background: rgba(91, 127, 255, 0.08);
+    }
+    .flow-node.app-node {
+      background: rgba(52, 199, 89, 0.06);
+      border-color: rgba(52, 199, 89, 0.15);
+    }
+    .flow-node.app-node code {
+      color: var(--green);
+      background: rgba(52, 199, 89, 0.08);
+    }
+
+    /* --- INSTALL --- */
+    .install-section {
+      border-top: 1px solid var(--border);
+      padding-top: 80px;
+    }
+    .install-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      margin-top: 40px;
+    }
+    .install-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .install-step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .install-step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .install-step h4 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .install-step p {
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+    pre {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      overflow-x: auto;
+      margin-top: 8px;
+    }
+    pre .comment { color: var(--text-dim); }
+    pre .cmd { color: var(--accent); }
+
+    /* --- NAMES --- */
+    .names-section {
+      border-top: 1px solid var(--border);
+      padding-top: 80px;
+    }
+    .names-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 32px;
+      justify-content: center;
+    }
+    .name-tag {
+      display: inline-block;
+      padding: 6px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dim);
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .name-tag:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* --- FOOTER --- */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+      text-align: center;
+    }
+    footer p {
+      font-size: 14px;
+      color: var(--text-dim);
+    }
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    footer a:hover { text-decoration: underline; }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 768px) {
+      .how-grid { grid-template-columns: 1fr; }
+      .hero-cta, .hero-secondary { display: flex; justify-content: center; margin: 8px auto 0; }
+      .hero-buttons { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="container">
+    <a class="nav-brand" href="#">
+      <svg class="nav-crab crab-svg crab-working" width="24" height="24" viewBox="0 0 64 64">
+        <g class="crab-legs">
+          <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="15" y1="30" x2="2" y2="28" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="49" y1="30" x2="62" y2="28" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+        </g>
+        <!-- claws -->
+        <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
+        <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
+        <!-- body -->
+        <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
+        <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
+        <!-- eye stalks -->
+        <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- eyes -->
+        <circle cx="21" cy="46" r="4" fill="white"/>
+        <circle cx="43" cy="46" r="4" fill="white"/>
+        <g class="crab-pupils">
+          <circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/>
+          <circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/>
+        </g>
+        <!-- mouth -->
+        <path d="M29,25 Q32,22 35,25" stroke="#e6601a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <!-- sparkles -->
+        <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
+        <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffcc33" opacity="0.3"/>
+        <circle class="crab-sparkle" cx="50" cy="54" r="1.5" fill="#ffcc33" opacity="0.3"/>
+      </svg>
+      Claude Observer
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#states">Crab States</a>
+      <a href="#how">How It Works</a>
+      <a href="#install">Install</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-badge">
+      <span>macOS</span> Status Bar App for Claude Code
+    </div>
+    <h1>Your Claude sessions<br>as cute little <span class="accent">crabs</span></h1>
+    <p>A macOS status bar app that gives each Claude Code session a unique crab name and shows what they're all up to at a glance.</p>
+    <div class="hero-buttons">
+      <a class="hero-cta" href="#install">Get Started</a>
+      <a class="hero-secondary" href="https://github.com/svenliebig/claude-observer">View on GitHub</a>
+    </div>
+
+    <!-- Menu bar mockup -->
+    <div class="hero-visual">
+      <div class="menubar-mockup">
+        <div class="menubar-top">
+          <div class="menubar-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="menubar-title">Claude Observer</div>
+          <div class="menubar-icon">
+            <svg class="crab-svg crab-working" width="18" height="18" viewBox="0 0 64 64">
+              <g class="crab-legs">
+                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              </g>
+              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
+              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
+              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
+              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
+              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="21" cy="46" r="4" fill="white"/>
+              <circle cx="43" cy="46" r="4" fill="white"/>
+              <g class="crab-pupils"><circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/></g>
+              <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
+              <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffcc33" opacity="0.3"/>
+            </svg>
+            <span style="font-size:13px;font-weight:600;color:var(--text)">3</span>
+          </div>
+        </div>
+        <div class="menubar-body">
+          <div class="menu-header">Claude Observer</div>
+          <div class="menu-sep"></div>
+
+          <!-- Session 1: Working -->
+          <div class="menu-item">
+            <svg class="menu-item-icon crab-svg crab-working" viewBox="0 0 64 64">
+              <g class="crab-legs">
+                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              </g>
+              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
+              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
+              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
+              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
+              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="21" cy="46" r="4" fill="white"/>
+              <circle cx="43" cy="46" r="4" fill="white"/>
+              <g class="crab-pupils"><circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/></g>
+              <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
+            </svg>
+            <div class="menu-item-content">
+              <div class="menu-item-row">
+                <span style="color:var(--green);font-size:14px">&#9679;</span>
+                <span class="menu-item-name">Pinchy</span>
+                <span class="menu-item-dir">my-api</span>
+                <span class="menu-item-status status-working">WORKING</span>
+              </div>
+              <div class="menu-item-path">~/workspace/projects/my-api</div>
+            </div>
+          </div>
+
+          <!-- Session 2: Needs Input -->
+          <div class="menu-item">
+            <svg class="menu-item-icon crab-svg crab-input" viewBox="0 0 64 64">
+              <g>
+                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+              </g>
+              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff3b3b"/>
+              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff3b3b"/>
+              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff3b3b"/>
+              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#d92a2a"/>
+              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="21" cy="46" r="4" fill="white"/>
+              <circle cx="43" cy="46" r="4" fill="white"/>
+              <circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/>
+              <circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/>
+              <ellipse cx="32" cy="24" rx="3.5" ry="2.5" fill="rgba(60,10,10,0.8)"/>
+              <!-- badge -->
+              <circle class="crab-badge" cx="54" cy="50" r="9" fill="#ff3b3b" stroke="white" stroke-width="2"/>
+              <text x="54" y="54" text-anchor="middle" fill="white" font-size="14" font-weight="bold">!</text>
+            </svg>
+            <div class="menu-item-content">
+              <div class="menu-item-row">
+                <span style="color:var(--red);font-size:14px">&#9679;</span>
+                <span class="menu-item-name">Clawdia</span>
+                <span class="menu-item-dir">frontend</span>
+                <span class="menu-item-status status-input">WAITING FOR INPUT</span>
+              </div>
+              <div class="menu-item-path">~/workspace/projects/frontend</div>
+            </div>
+          </div>
+
+          <!-- Session 3: Idle -->
+          <div class="menu-item">
+            <svg class="menu-item-icon crab-svg crab-idle" viewBox="0 0 64 64">
+              <g>
+                <line x1="17" y1="22" x2="5" y2="16" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+                <line x1="47" y1="22" x2="59" y2="16" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+                <line x1="16" y1="26" x2="3" y2="22" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+                <line x1="48" y1="26" x2="61" y2="22" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+              </g>
+              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#7a7a88" opacity="0.4"/>
+              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#7a7a88" opacity="0.4"/>
+              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#7a7a88" opacity="0.4"/>
+              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#6a6a78" opacity="0.4"/>
+              <line x1="22" y1="36" x2="21" y2="44" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+              <line x1="42" y1="36" x2="43" y2="44" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+              <!-- closed eyes -->
+              <path d="M17,46 A4,4 0 0,1 25,46" stroke="#5a5a68" stroke-width="2" fill="none" opacity="0.6"/>
+              <path d="M39,46 A4,4 0 0,1 47,46" stroke="#5a5a68" stroke-width="2" fill="none" opacity="0.6"/>
+              <!-- zzz -->
+              <text class="crab-zzz" x="46" y="40" fill="#5b5baa" font-size="14" font-weight="800" opacity="0.7">z</text>
+              <text class="crab-zzz" x="52" y="50" fill="#5b5baa" font-size="10" font-weight="700" opacity="0.5">z</text>
+            </svg>
+            <div class="menu-item-content">
+              <div class="menu-item-row">
+                <span style="color:var(--text-dim);font-size:14px">&#9675;</span>
+                <span class="menu-item-name">Scuttles</span>
+                <span class="menu-item-dir">infra</span>
+                <span class="menu-item-status status-idle">idle</span>
+              </div>
+              <div class="menu-item-path">~/workspace/projects/infra</div>
+            </div>
+          </div>
+
+          <div class="menu-sep"></div>
+          <div class="menu-quit">Quit Claude Observer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-label">Features</div>
+    <h2 class="section-title">Everything at a glance</h2>
+    <p class="section-desc">Keep track of all your parallel Claude Code sessions without switching between terminal windows.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon orange">
+          <svg width="20" height="20" viewBox="0 0 64 64">
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
+            <circle cx="21" cy="46" r="3" fill="white"/>
+            <circle cx="43" cy="46" r="3" fill="white"/>
+            <circle cx="21.5" cy="46" r="1.5" fill="#1a1a1a"/>
+            <circle cx="43.5" cy="46" r="1.5" fill="#1a1a1a"/>
+          </svg>
+        </div>
+        <h3>Animated Status Bar Crab</h3>
+        <p>A pixel-art crab lives in your menu bar, with legs that wiggle when Claude is working and eyes that close when idle.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon green">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        </div>
+        <h3>Session Dropdown</h3>
+        <p>Click the crab to see all active sessions, each with its own crab name, working directory, and real-time status.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon red">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff3b3b" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <h3>Desktop Notifications</h3>
+        <p>Get a native macOS notification with a "ding" sound when any Claude session needs your input or permission.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon blue">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b7fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <h3>Auto-Cleanup</h3>
+        <p>Stale sessions from crashed or killed Claude processes are automatically detected and cleaned up.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon yellow">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffcc33" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9"/></svg>
+        </div>
+        <h3>Unique Crab Names</h3>
+        <p>Each session is deterministically assigned a charming crab name like Pinchy, Clawdia, or Captain Claw.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon pink">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff3b82" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>Zero Config</h3>
+        <p>One command installs everything: compiles the Swift app, copies hooks, and configures Claude Code settings.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CRAB STATES -->
+<section id="states" class="states-section">
+  <div class="container">
+    <div class="section-label">Crab States</div>
+    <h2 class="section-title">Meet the moods</h2>
+    <p class="section-desc">Each crab visually reflects what its Claude session is doing right now.</p>
+
+    <div class="states-grid">
+      <!-- Working -->
+      <div class="state-card">
+        <div class="state-crab">
+          <svg class="crab-svg crab-working" width="64" height="64" viewBox="0 0 64 64">
+            <g class="crab-legs">
+              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="15" y1="30" x2="2" y2="28" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="49" y1="30" x2="62" y2="28" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+            </g>
+            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
+            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
+            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
+            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="21" cy="46" r="4" fill="white"/>
+            <circle cx="43" cy="46" r="4" fill="white"/>
+            <g class="crab-pupils"><circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/></g>
+            <path d="M29,25 Q32,22 35,25" stroke="#e6601a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
+            <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffcc33" opacity="0.3"/>
+            <circle class="crab-sparkle" cx="50" cy="54" r="1.5" fill="#ffcc33" opacity="0.3"/>
+          </svg>
+        </div>
+        <h3 style="color:var(--accent)">Working</h3>
+        <p>Orange crab with wiggling legs and sparkles. Claude is processing your request.</p>
+      </div>
+
+      <!-- Needs Input -->
+      <div class="state-card">
+        <div class="state-crab">
+          <svg class="crab-svg crab-input" width="64" height="64" viewBox="0 0 64 64">
+            <g>
+              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="15" y1="30" x2="2" y2="28" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="49" y1="30" x2="62" y2="28" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+            </g>
+            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff3b3b"/>
+            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff3b3b"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff3b3b"/>
+            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#d92a2a"/>
+            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="21" cy="46" r="4" fill="white"/>
+            <circle cx="43" cy="46" r="4" fill="white"/>
+            <circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/>
+            <circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/>
+            <ellipse cx="32" cy="24" rx="3.5" ry="2.5" fill="rgba(60,10,10,0.8)"/>
+            <circle class="crab-badge" cx="54" cy="52" r="9" fill="#ff3b3b" stroke="white" stroke-width="2"/>
+            <text x="54" y="56" text-anchor="middle" fill="white" font-size="14" font-weight="bold">!</text>
+          </svg>
+        </div>
+        <h3 style="color:var(--red)">Needs Input</h3>
+        <p>Red bouncing crab with "!" badge. Claude needs your attention right now.</p>
+      </div>
+
+      <!-- Idle -->
+      <div class="state-card">
+        <div class="state-crab">
+          <svg class="crab-svg crab-idle" width="64" height="64" viewBox="0 0 64 64">
+            <g>
+              <line x1="17" y1="22" x2="5" y2="16" stroke="#7a7a88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+              <line x1="47" y1="22" x2="59" y2="16" stroke="#7a7a88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+              <line x1="16" y1="26" x2="3" y2="22" stroke="#7a7a88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+              <line x1="48" y1="26" x2="61" y2="22" stroke="#7a7a88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+              <line x1="15" y1="30" x2="2" y2="28" stroke="#7a7a88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+              <line x1="49" y1="30" x2="62" y2="28" stroke="#7a7a88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+            </g>
+            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#7a7a88" opacity="0.4"/>
+            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#7a7a88" opacity="0.4"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#7a7a88" opacity="0.4"/>
+            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#6a6a78" opacity="0.4"/>
+            <line x1="22" y1="36" x2="21" y2="44" stroke="#7a7a88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+            <line x1="42" y1="36" x2="43" y2="44" stroke="#7a7a88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+            <path d="M17,46 A4,4 0 0,1 25,46" stroke="#5a5a68" stroke-width="2" fill="none" opacity="0.6"/>
+            <path d="M39,46 A4,4 0 0,1 47,46" stroke="#5a5a68" stroke-width="2" fill="none" opacity="0.6"/>
+            <text class="crab-zzz" x="46" y="40" fill="#5b5baa" font-size="14" font-weight="800" opacity="0.7">z</text>
+            <text class="crab-zzz" x="52" y="50" fill="#5b5baa" font-size="10" font-weight="700" opacity="0.5">z</text>
+          </svg>
+        </div>
+        <h3 style="color:var(--text-dim)">Idle</h3>
+        <p>Faded gray crab with closed eyes and floating "z"s. Waiting for your next prompt.</p>
+      </div>
+
+      <!-- Error -->
+      <div class="state-card">
+        <div class="state-crab">
+          <svg class="crab-svg" width="64" height="64" viewBox="0 0 64 64">
+            <g>
+              <line x1="17" y1="22" x2="5" y2="16" stroke="#d9267a" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="47" y1="22" x2="59" y2="16" stroke="#d9267a" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="16" y1="26" x2="3" y2="22" stroke="#d9267a" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="48" y1="26" x2="61" y2="22" stroke="#d9267a" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="15" y1="30" x2="2" y2="28" stroke="#d9267a" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="49" y1="30" x2="62" y2="28" stroke="#d9267a" stroke-width="2.5" stroke-linecap="round"/>
+            </g>
+            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#d9267a"/>
+            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#d9267a"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#d9267a"/>
+            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#b31a59"/>
+            <line x1="22" y1="36" x2="21" y2="44" stroke="#d9267a" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="42" y1="36" x2="43" y2="44" stroke="#d9267a" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="21" cy="46" r="4" fill="white"/>
+            <circle cx="43" cy="46" r="4" fill="white"/>
+            <circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/>
+            <circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/>
+            <ellipse cx="32" cy="24" rx="3.5" ry="2.5" fill="rgba(60,10,10,0.8)"/>
+            <circle cx="54" cy="52" r="9" fill="#d9267a" stroke="white" stroke-width="2"/>
+            <text x="54" y="56" text-anchor="middle" fill="white" font-size="14" font-weight="bold">!</text>
+          </svg>
+        </div>
+        <h3 style="color:var(--pink)">Error</h3>
+        <p>Pink crab with an alert badge. An API error occurred in this session.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" class="how-section">
+  <div class="container">
+    <div class="section-label">Architecture</div>
+    <h2 class="section-title">How it works</h2>
+    <p class="section-desc">Claude Observer uses Claude Code's hook system to track session lifecycle events in real time.</p>
+
+    <div class="how-grid">
+      <div>
+        <div class="how-step">
+          <div class="how-num">1</div>
+          <div>
+            <h4>Hook Events Fire</h4>
+            <p>Claude Code triggers hooks on session lifecycle events: start, prompt submit, stop, error, and notification.</p>
+          </div>
+        </div>
+        <div class="how-step">
+          <div class="how-num">2</div>
+          <div>
+            <h4>Python Hook Writes State</h4>
+            <p>The observer hook script receives event data via stdin and writes/updates a JSON file per session to <code>~/.claude-observer/sessions/</code>.</p>
+          </div>
+        </div>
+        <div class="how-step">
+          <div class="how-num">3</div>
+          <div>
+            <h4>Swift App Polls</h4>
+            <p>The status bar app polls the sessions directory every 2 seconds, reads the JSON files, and updates the menu bar display.</p>
+          </div>
+        </div>
+        <div class="how-step">
+          <div class="how-num">4</div>
+          <div>
+            <h4>Notifications & Cleanup</h4>
+            <p>When a session transitions to "needs input", a native macOS notification is sent. Dead sessions are automatically cleaned up.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="how-diagram">
+        <div class="flow">
+          <div class="flow-node">Claude Code triggers hook event<br><code>SessionStart</code> <code>Stop</code> <code>Notification</code> ...</div>
+          <div class="flow-arrow">&#8595;</div>
+          <div class="flow-node file-node">Python hook writes JSON<br><code>~/.claude-observer/sessions/{id}.json</code></div>
+          <div class="flow-arrow">&#8595;</div>
+          <div class="flow-node app-node">Swift app reads &amp; renders<br><code>NSStatusBar</code> + animated crab + dropdown menu</div>
+        </div>
+
+        <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border)">
+          <div style="font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:12px">Tracked Events</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">SessionStart</code></div>
+            <div style="color:var(--text-dim)">Creates session file</div>
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">UserPromptSubmit</code></div>
+            <div style="color:var(--text-dim)">Marks as "working"</div>
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">Stop</code></div>
+            <div style="color:var(--text-dim)">Marks as "idle"</div>
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">Notification</code></div>
+            <div style="color:var(--text-dim)">Marks as "needs input"</div>
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">SessionEnd</code></div>
+            <div style="color:var(--text-dim)">Removes session file</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install" class="install-section">
+  <div class="container">
+    <div class="section-label">Getting Started</div>
+    <h2 class="section-title">Install in seconds</h2>
+    <p class="section-desc">Requires macOS 12+, Xcode Command Line Tools, and Python 3.</p>
+
+    <div class="install-card">
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-step-num">1</div>
+          <div>
+            <h4>Clone the repository</h4>
+            <pre><span class="cmd">git clone</span> https://github.com/svenliebig/claude-observer.git
+<span class="cmd">cd</span> claude-observer</pre>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">2</div>
+          <div>
+            <h4>Install</h4>
+            <p>Compiles the Swift app, installs the hook script, and configures Claude Code hooks.</p>
+            <pre><span class="cmd">make install</span></pre>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">3</div>
+          <div>
+            <h4>Run</h4>
+            <pre><span class="cmd">make run</span>
+<span class="comment"># or directly:</span>
+~/.claude-observer/bin/claude-observer &amp;</pre>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div>
+            <h4 style="font-size:14px;margin-bottom:6px">Stop</h4>
+            <pre><span class="cmd">make stop</span></pre>
+          </div>
+          <div>
+            <h4 style="font-size:14px;margin-bottom:6px">Uninstall</h4>
+            <pre><span class="cmd">make uninstall</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size:13px;color:var(--text-dim);margin-top:20px">
+        Tip: Add the binary to <strong>System Settings &gt; General &gt; Login Items</strong> for auto-start on login.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- CRAB NAMES -->
+<section class="names-section">
+  <div class="container" style="text-align:center">
+    <div class="section-label">35 Unique Names</div>
+    <h2 class="section-title">Meet the crew</h2>
+    <p class="section-desc" style="margin:0 auto 0">Each Claude session gets a deterministic crab name based on its session ID.</p>
+    <div class="names-cloud">
+      <span class="name-tag">Pinchy</span>
+      <span class="name-tag">Snippy</span>
+      <span class="name-tag">Clawdia</span>
+      <span class="name-tag">Scuttles</span>
+      <span class="name-tag">Sheldon</span>
+      <span class="name-tag">Bubbles</span>
+      <span class="name-tag">Sandy</span>
+      <span class="name-tag">Hermie</span>
+      <span class="name-tag">Captain Claw</span>
+      <span class="name-tag">Rusty</span>
+      <span class="name-tag">Coral</span>
+      <span class="name-tag">Neptune</span>
+      <span class="name-tag">Barnacle</span>
+      <span class="name-tag">Tidbit</span>
+      <span class="name-tag">Shelly</span>
+      <span class="name-tag">Crusty</span>
+      <span class="name-tag">Wobbles</span>
+      <span class="name-tag">Chomper</span>
+      <span class="name-tag">Skipper</span>
+      <span class="name-tag">Pebbles</span>
+      <span class="name-tag">Biscuit</span>
+      <span class="name-tag">Snapper</span>
+      <span class="name-tag">Gizmo</span>
+      <span class="name-tag">Pepper</span>
+      <span class="name-tag">Ziggy</span>
+      <span class="name-tag">Pickle</span>
+      <span class="name-tag">Noodle</span>
+      <span class="name-tag">Sprocket</span>
+      <span class="name-tag">Tango</span>
+      <span class="name-tag">Mango</span>
+      <span class="name-tag">Fiddler</span>
+      <span class="name-tag">Coconut</span>
+      <span class="name-tag">Cheddar</span>
+      <span class="name-tag">Waffles</span>
+      <span class="name-tag">Bongo</span>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <p style="margin-bottom:8px">
+      <svg class="crab-svg crab-idle" width="18" height="18" viewBox="0 0 64 64" style="vertical-align:middle">
+        <ellipse cx="32" cy="30" rx="17" ry="11" fill="#7a7a88" opacity="0.4"/>
+        <path d="M17,46 A4,4 0 0,1 25,46" stroke="#5a5a68" stroke-width="2" fill="none" opacity="0.6"/>
+        <path d="M39,46 A4,4 0 0,1 47,46" stroke="#5a5a68" stroke-width="2" fill="none" opacity="0.6"/>
+        <text class="crab-zzz" x="46" y="40" fill="#5b5baa" font-size="14" font-weight="800" opacity="0.7">z</text>
+      </svg>
+    </p>
+    <p>Claude Observer &middot; <a href="https://github.com/svenliebig/claude-observer">GitHub</a></p>
+    <p style="margin-top:4px;font-size:12px;color:rgba(139,143,163,0.5)">macOS 12+ &middot; Swift &middot; Python 3</p>
+  </div>
+</footer>
+
+<!-- Smooth scroll -->
+<script>
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+</script>
+
+</body>
+</html>

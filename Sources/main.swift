@@ -15,6 +15,14 @@ let kCrabNames = [
     "Fiddler", "Coconut", "Cheddar", "Waffles", "Bongo"
 ]
 
+private func abbreviatePath(_ path: String) -> String {
+    let home = FileManager.default.homeDirectoryForCurrentUser.path
+    if path.hasPrefix(home) {
+        return "~" + path.dropFirst(home.count)
+    }
+    return path
+}
+
 // MARK: - Session Model
 
 struct CrabSession: Codable {
@@ -467,21 +475,41 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         let dot: String
         let label: String
         let dotColor: NSColor
+        let labelColor: NSColor
         let labelWeight: NSFont.Weight
 
+        // High-contrast explicit colors that work on translucent menu backgrounds
         switch session.status {
         case "working":
-            dot = "\u{25CF}"; label = "WORKING"; dotColor = NSColor.systemGreen; labelWeight = .semibold
+            dot = "\u{25CF}"; label = "WORKING"
+            dotColor = NSColor(red: 0.1, green: 0.6, blue: 0.2, alpha: 1)
+            labelColor = NSColor(red: 0.1, green: 0.55, blue: 0.15, alpha: 1)
+            labelWeight = .bold
         case "needs_input":
-            dot = "\u{25CF}"; label = "WAITING FOR INPUT"; dotColor = NSColor.systemRed; labelWeight = .bold
+            dot = "\u{25CF}"; label = "WAITING FOR INPUT"
+            dotColor = NSColor(red: 0.85, green: 0.1, blue: 0.1, alpha: 1)
+            labelColor = NSColor(red: 0.8, green: 0.05, blue: 0.05, alpha: 1)
+            labelWeight = .heavy
         case "needs_permission":
-            dot = "\u{25CF}"; label = "NEEDS PERMISSION"; dotColor = NSColor.systemOrange; labelWeight = .bold
+            dot = "\u{25CF}"; label = "NEEDS PERMISSION"
+            dotColor = NSColor(red: 0.85, green: 0.45, blue: 0.0, alpha: 1)
+            labelColor = NSColor(red: 0.8, green: 0.4, blue: 0.0, alpha: 1)
+            labelWeight = .bold
         case "idle":
-            dot = "\u{25CB}"; label = "idle"; dotColor = NSColor.tertiaryLabelColor; labelWeight = .regular
+            dot = "\u{25CB}"; label = "idle"
+            dotColor = NSColor(red: 0.45, green: 0.45, blue: 0.5, alpha: 1)
+            labelColor = NSColor(red: 0.45, green: 0.45, blue: 0.5, alpha: 1)
+            labelWeight = .medium
         case "error":
-            dot = "\u{25CF}"; label = "ERROR"; dotColor = NSColor.systemPink; labelWeight = .bold
+            dot = "\u{25CF}"; label = "ERROR"
+            dotColor = NSColor(red: 0.75, green: 0.1, blue: 0.35, alpha: 1)
+            labelColor = NSColor(red: 0.7, green: 0.05, blue: 0.3, alpha: 1)
+            labelWeight = .bold
         default:
-            dot = "\u{25CB}"; label = session.status; dotColor = NSColor.secondaryLabelColor; labelWeight = .regular
+            dot = "\u{25CB}"; label = session.status
+            dotColor = NSColor(red: 0.45, green: 0.45, blue: 0.5, alpha: 1)
+            labelColor = NSColor(red: 0.45, green: 0.45, blue: 0.5, alpha: 1)
+            labelWeight = .medium
         }
 
         let dirName = (session.cwd as NSString).lastPathComponent
@@ -501,33 +529,37 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         )
         main.append(NSAttributedString(
             string: "\(session.name)",
-            attributes: [.font: NSFont.systemFont(ofSize: 13, weight: .medium)]
+            attributes: [
+                .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
+                .foregroundColor: NSColor.labelColor
+            ]
         ))
         main.append(NSAttributedString(
             string: "  \(dirName)  ",
             attributes: [
                 .font: NSFont.systemFont(ofSize: 12),
-                .foregroundColor: NSColor.secondaryLabelColor
+                .foregroundColor: NSColor(red: 0.35, green: 0.35, blue: 0.4, alpha: 1)
             ]
         ))
         main.append(NSAttributedString(
             string: label,
             attributes: [
                 .font: NSFont.systemFont(ofSize: 11, weight: labelWeight),
-                .foregroundColor: dotColor
+                .foregroundColor: labelColor
             ]
         ))
         item.attributedTitle = main
         menu.addItem(item)
 
-        // Detail row: full path
-        let detail = NSMenuItem(title: session.cwd, action: nil, keyEquivalent: "")
+        // Detail row: path with ~ for home directory
+        let displayPath = abbreviatePath(session.cwd)
+        let detail = NSMenuItem(title: displayPath, action: nil, keyEquivalent: "")
         detail.isEnabled = false
         detail.attributedTitle = NSAttributedString(
-            string: "      \(session.cwd)",
+            string: "      \(displayPath)",
             attributes: [
                 .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
-                .foregroundColor: NSColor.tertiaryLabelColor
+                .foregroundColor: NSColor(red: 0.4, green: 0.4, blue: 0.45, alpha: 1)
             ]
         )
         menu.addItem(detail)

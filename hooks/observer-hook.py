@@ -88,6 +88,14 @@ elif event == "UserPromptSubmit":
         session["cwd"] = cwd
     write_session(session)
 
+elif event == "PreToolUse":
+    session = ensure_session()
+    session["status"] = "working"
+    session["last_activity"] = timestamp
+    if cwd:
+        session["cwd"] = cwd
+    write_session(session)
+
 elif event == "Stop":
     session = ensure_session()
     session["status"] = "idle"
