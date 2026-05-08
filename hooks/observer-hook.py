@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import hashlib
+import time
 from datetime import datetime, timezone
 
 STATE_DIR = os.path.expanduser("~/.claude-observer/sessions")
@@ -52,6 +53,29 @@ def write_session(session):
     with open(tmp, "w") as f:
         json.dump(session, f)
     os.replace(tmp, session_file)
+
+
+def summarize_tool_input(tool_name, tool_input):
+    if not tool_input or not isinstance(tool_input, dict):
+        return ""
+    if tool_name == "Bash":
+        return tool_input.get("command", "")
+    if tool_name in ("Edit", "Write", "Read"):
+        path = tool_input.get("file_path", "")
+        home = os.path.expanduser("~")
+        if path.startswith(home):
+            path = "~" + path[len(home):]
+        return path
+    if tool_name in ("Glob", "Grep"):
+        return tool_input.get("pattern", "")
+    if tool_name == "WebFetch":
+        return tool_input.get("url", "")
+    if tool_name == "WebSearch":
+        return tool_input.get("query", "")
+    for v in tool_input.values():
+        if isinstance(v, str) and v:
+            return v[:80]
+    return ""
 
 
 def ensure_session():
@@ -137,9 +161,70 @@ elif event == "PermissionRequest":
     was_working = session.get("status") in ("working", None)
     session["status"] = "needs_permission"
     session["last_activity"] = timestamp
+
+    tool_name = data.get("tool_name", "Unknown")
+    tool_input = data.get("tool_input", {})
+    tool_summary = summarize_tool_input(tool_name, tool_input)
+    session["permission_request"] = {
+        "tool_name": tool_name,
+        "tool_summary": tool_summary,
+    }
     write_session(session)
+
     if was_working:
         os.system("afplay /System/Library/Sounds/Ping.aiff &")
+
+    # Wait for response from the observer widget
+    response_file = os.path.join(STATE_DIR, f"{session_id}.response.json")
+    try:
+        os.remove(response_file)
+    except FileNotFoundError:
+        pass
+
+    start = time.time()
+    while time.time() - start < 120:
+        if os.path.exists(response_file):
+            try:
+                with open(response_file) as f:
+                    response = json.load(f)
+                os.remove(response_file)
+            except Exception:
+                break
+
+            decision = response.get("decision", "allow")
+
+            # Clear permission request from session
+            session = read_session()
+            if session:
+                session.pop("permission_request", None)
+                session["status"] = "working"
+                session["last_activity"] = datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+                write_session(session)
+
+            if decision == "deny":
+                sys.stderr.write("Denied via Claude Observer\n")
+                sys.exit(2)
+
+            output = {
+                "hookSpecificOutput": {
+                    "hookEventName": "PermissionRequest",
+                    "decision": {"behavior": "allow"},
+                }
+            }
+            if decision == "always_allow":
+                output["hookSpecificOutput"]["decision"]["permissionRule"] = tool_name
+            json.dump(output, sys.stdout)
+            sys.exit(0)
+
+        time.sleep(0.5)
+
+    # Timeout: clear permission_request, let Claude handle it normally
+    session = read_session()
+    if session:
+        session.pop("permission_request", None)
+        write_session(session)
 
 elif event == "SubagentStart":
     session = ensure_session()
@@ -162,5 +247,9 @@ elif event == "PreCompact":
 elif event == "SessionEnd":
     try:
         os.remove(session_file)
+    except FileNotFoundError:
+        pass
+    try:
+        os.remove(os.path.join(STATE_DIR, f"{session_id}.response.json"))
     except FileNotFoundError:
         pass

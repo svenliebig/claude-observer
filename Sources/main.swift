@@ -34,6 +34,16 @@ private func elapsedString(since isoString: String) -> String {
 
 // MARK: - Session Model
 
+struct PermissionRequestInfo: Codable {
+    let toolName: String
+    let toolSummary: String
+
+    enum CodingKeys: String, CodingKey {
+        case toolName = "tool_name"
+        case toolSummary = "tool_summary"
+    }
+}
+
 struct CrabSession: Codable {
     let id: String
     let name: String
@@ -44,6 +54,7 @@ struct CrabSession: Codable {
     var lastActivity: String
     var notificationType: String?
     var tmuxPane: String?
+    var permissionRequest: PermissionRequestInfo?
 
     enum CodingKeys: String, CodingKey {
         case id, name, cwd, status, pid
@@ -51,6 +62,7 @@ struct CrabSession: Codable {
         case lastActivity = "last_activity"
         case notificationType = "notification_type"
         case tmuxPane = "tmux_pane"
+        case permissionRequest = "permission_request"
     }
 }
 
@@ -342,9 +354,11 @@ class IslandView: NSView {
     var hoveredRowIndex: Int = -1
     var onToggle: (() -> Void)?
     var onSessionClick: ((CrabSession) -> Void)?
+    var onPermissionResponse: ((CrabSession, String) -> Void)?
 
     static let compactHeight: CGFloat = 36
     static let sessionRowHeight: CGFloat = 52
+    static let permissionRowHeight: CGFloat = 85
     static let expandedWidth: CGFloat = 400
     static let compactWidthWithSessions: CGFloat = 240
     static let compactWidthEmpty: CGFloat = 160
@@ -386,6 +400,14 @@ class IslandView: NSView {
         }
     }
 
+    // Button layout constants for permission rows
+    private static let buttonY_offset: CGFloat = 53
+    private static let buttonH: CGFloat = 22
+    private static let buttonSpecs: [(label: String, width: CGFloat)] = [
+        ("Allow", 55), ("Deny", 48), ("Always", 60)
+    ]
+    private static let buttonGap: CGFloat = 8
+
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
 
@@ -394,10 +416,31 @@ class IslandView: NSView {
                 onToggle?()
                 return
             }
-            let index = rowIndex(at: point)
             let sorted = sortedSessions
-            if index >= 0 && index < sorted.count {
-                onSessionClick?(sorted[index])
+            var y = Self.compactHeight + 8
+            for (i, session) in sorted.enumerated() {
+                let rh = rowHeight(for: session)
+                if point.y >= y && point.y < y + rh {
+                    // Check permission button clicks
+                    if session.status == "needs_permission" && session.permissionRequest != nil {
+                        let textX: CGFloat = 14 + 16 + 6 + 7 + 8
+                        let btnY = y + Self.buttonY_offset
+                        if point.y >= btnY && point.y < btnY + Self.buttonH {
+                            let decisions = ["allow", "deny", "always_allow"]
+                            var bx = textX
+                            for (bi, spec) in Self.buttonSpecs.enumerated() {
+                                if point.x >= bx && point.x < bx + spec.width {
+                                    onPermissionResponse?(session, decisions[bi])
+                                    return
+                                }
+                                bx += spec.width + Self.buttonGap
+                            }
+                        }
+                    }
+                    onSessionClick?(sorted[i])
+                    return
+                }
+                y += rh
             }
         } else {
             onToggle?()
@@ -414,13 +457,29 @@ class IslandView: NSView {
         NSMenu.popUpContextMenu(menu, with: event, for: self)
     }
 
+    func rowHeight(for session: CrabSession) -> CGFloat {
+        if session.status == "needs_permission" && session.permissionRequest != nil {
+            return Self.permissionRowHeight
+        }
+        return Self.sessionRowHeight
+    }
+
+    var totalRowHeight: CGFloat {
+        sortedSessions.reduce(0) { $0 + rowHeight(for: $1) }
+    }
+
     private func rowIndex(at point: NSPoint) -> Int {
         guard isExpanded else { return -1 }
-        let rowsStartY = Self.compactHeight + 8
-        let y = point.y - rowsStartY
-        guard y >= 0 else { return -1 }
-        let index = Int(y / Self.sessionRowHeight)
-        return index < sessions.count ? index : -1
+        let sorted = sortedSessions
+        var y = Self.compactHeight + 8
+        for (i, session) in sorted.enumerated() {
+            let rh = rowHeight(for: session)
+            if point.y >= y && point.y < y + rh {
+                return i
+            }
+            y += rh
+        }
+        return -1
     }
 
     // MARK: - State Helpers
@@ -471,9 +530,10 @@ class IslandView: NSView {
         if isExpanded && !sessions.isEmpty {
             drawSeparator()
             let sorted = sortedSessions
+            var y = Self.compactHeight + 8
             for (i, session) in sorted.enumerated() {
-                let y = Self.compactHeight + 8 + CGFloat(i) * Self.sessionRowHeight
                 drawSessionRow(session, at: y, index: i)
+                y += rowHeight(for: session)
             }
         }
     }
@@ -558,10 +618,11 @@ class IslandView: NSView {
         let padding: CGFloat = 14
         let crabState = stateFor(session.status)
         let hasTmux = session.tmuxPane != nil && !(session.tmuxPane?.isEmpty ?? true)
+        let rh = rowHeight(for: session)
 
         // Hover highlight
         if hoveredRowIndex == index && hasTmux {
-            let rowRect = NSRect(x: 6, y: y + 1, width: bounds.width - 12, height: Self.sessionRowHeight - 2)
+            let rowRect = NSRect(x: 6, y: y + 1, width: bounds.width - 12, height: rh - 2)
             let hoverPath = NSBezierPath(roundedRect: rowRect, xRadius: 8, yRadius: 8)
             NSColor(white: 1, alpha: 0.07).setFill()
             hoverPath.fill()
@@ -618,14 +679,61 @@ class IslandView: NSView {
         let statusWidth = statusStr.size().width
         statusStr.draw(at: NSPoint(x: bounds.width - padding - timeWidth - 8 - statusWidth, y: y + 9))
 
-        // Full path on second line
-        let displayPath = abbreviatePath(session.cwd)
-        let pathAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
-            .foregroundColor: NSColor(white: 1, alpha: 0.3)
+        // Permission request: tool summary + action buttons
+        if session.status == "needs_permission", let perm = session.permissionRequest {
+            let summaryText = "\(perm.toolName): \(perm.toolSummary)"
+            let maxChars = 50
+            let truncated = summaryText.count > maxChars
+                ? String(summaryText.prefix(maxChars - 3)) + "..."
+                : summaryText
+            let summaryAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+                .foregroundColor: NSColor(white: 1, alpha: 0.7)
+            ]
+            NSAttributedString(string: truncated, attributes: summaryAttrs)
+                .draw(at: NSPoint(x: textX, y: y + 30))
+
+            // Action buttons
+            let btnY = y + Self.buttonY_offset
+            let colors: [NSColor] = [.systemGreen, .systemRed, .systemBlue]
+            var bx = textX
+            for (bi, spec) in Self.buttonSpecs.enumerated() {
+                drawButton(spec.label, at: NSPoint(x: bx, y: btnY),
+                           size: NSSize(width: spec.width, height: Self.buttonH),
+                           color: colors[bi])
+                bx += spec.width + Self.buttonGap
+            }
+        } else {
+            // Full path on second line (non-permission rows)
+            let displayPath = abbreviatePath(session.cwd)
+            let pathAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+                .foregroundColor: NSColor(white: 1, alpha: 0.3)
+            ]
+            NSAttributedString(string: displayPath, attributes: pathAttrs)
+                .draw(at: NSPoint(x: textX, y: y + 30))
+        }
+    }
+
+    private func drawButton(_ title: String, at point: NSPoint, size: NSSize, color: NSColor) {
+        let rect = NSRect(origin: point, size: size)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
+        color.withAlphaComponent(0.2).setFill()
+        path.fill()
+        color.withAlphaComponent(0.5).setStroke()
+        path.lineWidth = 0.5
+        path.stroke()
+
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .foregroundColor: color
         ]
-        let pathStr = NSAttributedString(string: displayPath, attributes: pathAttrs)
-        pathStr.draw(at: NSPoint(x: textX, y: y + 30))
+        let str = NSAttributedString(string: title, attributes: attrs)
+        let textSize = str.size()
+        str.draw(at: NSPoint(
+            x: point.x + (size.width - textSize.width) / 2,
+            y: point.y + (size.height - textSize.height) / 2
+        ))
     }
 }
 
@@ -705,6 +813,9 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
             guard let tmux = session.tmuxPane, !tmux.isEmpty else { return }
             self?.focusTmuxPane(tmux)
         }
+        islandView.onPermissionResponse = { [weak self] session, decision in
+            self?.respondToPermission(session: session, decision: decision)
+        }
 
         // View hierarchy
         visualEffectView.addSubview(islandView)
@@ -732,8 +843,13 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
             return NSRect(x: 100, y: 100, width: IslandView.expandedWidth, height: 200)
         }
         let w = IslandView.expandedWidth
-        let rowCount = CGFloat(max(1, sessions.count))
-        let h = IslandView.compactHeight + 8 + rowCount * IslandView.sessionRowHeight + 8
+        let totalRowH = sessions.values.reduce(CGFloat(0)) { sum, session in
+            if session.status == "needs_permission" && session.permissionRequest != nil {
+                return sum + IslandView.permissionRowHeight
+            }
+            return sum + IslandView.sessionRowHeight
+        }
+        let h = IslandView.compactHeight + 8 + max(totalRowH, IslandView.sessionRowHeight) + 8
         let x = screen.frame.midX - w / 2
         let y = screen.visibleFrame.maxY - h - 6
         return NSRect(x: x, y: y, width: w, height: h)
@@ -944,6 +1060,25 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         activate.standardOutput = FileHandle.nullDevice
         activate.standardError = FileHandle.nullDevice
         try? activate.run()
+    }
+
+    // MARK: - Permission Response
+
+    private func respondToPermission(session: CrabSession, decision: String) {
+        let responseFile = kStateDir.appendingPathComponent("\(session.id).response.json")
+        let response: [String: String] = ["decision": decision]
+        guard let data = try? JSONSerialization.data(withJSONObject: response) else { return }
+        let tmpFile = kStateDir.appendingPathComponent("\(session.id).response.json.tmp")
+        try? data.write(to: tmpFile)
+        try? FileManager.default.moveItem(at: tmpFile, to: responseFile)
+
+        // Immediate local feedback
+        if var s = sessions[session.id] {
+            s.permissionRequest = nil
+            s.status = "working"
+            sessions[session.id] = s
+            updateDisplay()
+        }
     }
 
 }
