@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Claude Observer - Cute Crabs for Your Claude Code Sessions</title>
-  <meta name="description" content="A macOS status bar app that shows your running Claude Code sessions as cute little crabs.">
+  <title>Claude Observer - A Dynamic Island for Your Claude Code Sessions</title>
+  <meta name="description" content="A macOS dynamic island app that shows your running Claude Code sessions as cute little crabs.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -23,6 +23,7 @@
       --pink: #ff3b82;
       --blue: #5b7fff;
       --yellow: #ffcc33;
+      --orange: #ff9500;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -130,7 +131,7 @@
     .hero p {
       font-size: 18px;
       color: var(--text-dim);
-      max-width: 540px;
+      max-width: 560px;
       margin: 0 auto 40px;
       line-height: 1.7;
     }
@@ -177,105 +178,6 @@
       margin-top: 60px;
       position: relative;
     }
-    .menubar-mockup {
-      max-width: 680px;
-      margin: 0 auto;
-      background: rgba(30, 33, 44, 0.6);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03);
-    }
-    .menubar-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      background: rgba(20, 23, 31, 0.9);
-      border-bottom: 1px solid var(--border);
-    }
-    .menubar-dots {
-      display: flex;
-      gap: 6px;
-    }
-    .menubar-dots span {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--border);
-    }
-    .menubar-title {
-      font-size: 12px;
-      color: var(--text-dim);
-      font-weight: 500;
-    }
-    .menubar-icon {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .menubar-body {
-      padding: 8px 0;
-    }
-    .menu-header {
-      padding: 8px 16px 4px;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
-    }
-    .menu-sep {
-      height: 1px;
-      background: var(--border);
-      margin: 6px 0;
-    }
-    .menu-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 7px 16px;
-    }
-    .menu-item-icon {
-      width: 20px;
-      height: 20px;
-      flex-shrink: 0;
-    }
-    .menu-item-content {
-      flex: 1;
-      min-width: 0;
-    }
-    .menu-item-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .menu-item-name {
-      font-size: 13px;
-      font-weight: 600;
-    }
-    .menu-item-dir {
-      font-size: 12px;
-      color: var(--text-dim);
-    }
-    .menu-item-status {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-    }
-    .status-working { color: var(--green); }
-    .status-input { color: var(--red); }
-    .status-idle { color: var(--text-dim); }
-    .status-error { color: var(--pink); }
-    .menu-item-path {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      color: rgba(139, 143, 163, 0.6);
-      margin-top: 1px;
-    }
-    .menu-quit {
-      padding: 7px 16px;
-      font-size: 13px;
-      color: var(--text-dim);
-    }
 
     /* --- CRAB SVGs --- */
     .crab-svg { display: inline-block; }
@@ -304,6 +206,18 @@
       0%, 40% { transform: translateX(0); }
       50%, 90% { transform: translateX(1px); }
     }
+    @keyframes glow-pulse {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.7; }
+    }
+    @keyframes glow-green {
+      0%, 100% { box-shadow: 0 0 12px rgba(52, 199, 89, 0.2); }
+      50% { box-shadow: 0 0 20px rgba(52, 199, 89, 0.35); }
+    }
+    @keyframes glow-orange {
+      0%, 100% { box-shadow: 0 0 12px rgba(255, 149, 0, 0.3); }
+      50% { box-shadow: 0 0 24px rgba(255, 149, 0, 0.6); }
+    }
     .crab-working .crab-legs { animation: wiggle-legs 0.5s ease-in-out infinite; transform-origin: center; }
     .crab-working .crab-sparkle { animation: sparkle 0.6s ease-in-out infinite; }
     .crab-working .crab-sparkle:nth-child(2) { animation-delay: 0.2s; }
@@ -315,6 +229,176 @@
 
     .crab-idle .crab-zzz { animation: zzz 2s ease-in-out infinite; }
     .crab-idle .crab-zzz:nth-child(2) { animation-delay: 0.6s; }
+
+    /* --- DYNAMIC ISLAND MOCKUP --- */
+    .island-demo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 32px;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .island-compact {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 20px 6px 14px;
+      background: rgba(20, 23, 31, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 22px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03);
+      animation: glow-green 2s ease-in-out infinite;
+      position: relative;
+    }
+    .island-compact-label {
+      position: absolute;
+      top: -28px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .island-compact .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .island-compact .status-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.9);
+    }
+    .island-compact .count {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.4);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .island-arrow {
+      color: var(--text-dim);
+      font-size: 20px;
+      opacity: 0.3;
+    }
+
+    .island-expanded {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(20, 23, 31, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03), 0 0 16px rgba(52, 199, 89, 0.15);
+      position: relative;
+    }
+    .island-expanded-label {
+      position: absolute;
+      top: -28px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .island-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 18px;
+    }
+    .island-header .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+    .island-header .status-text {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.9);
+      flex: 1;
+    }
+    .island-header .count {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.4);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .island-sep {
+      height: 1px;
+      background: rgba(255,255,255,0.07);
+      margin: 0 18px;
+    }
+
+    .island-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      transition: background 0.15s;
+    }
+    .island-row:hover {
+      background: rgba(255,255,255,0.04);
+    }
+    .island-row .row-icon {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .island-row .row-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .island-row .row-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .island-row .row-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .island-row .row-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.95);
+    }
+    .island-row .row-dir {
+      font-size: 12px;
+      color: rgba(255,255,255,0.35);
+    }
+    .island-row .row-status {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .island-row .row-time {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: rgba(255,255,255,0.3);
+      flex-shrink: 0;
+    }
+    .island-row .row-path {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: rgba(255,255,255,0.22);
+      margin-top: 2px;
+    }
 
     /* --- SECTION SHARED --- */
     section { padding: 80px 0; }
@@ -388,7 +472,7 @@
     .states-section { padding-bottom: 40px; }
     .states-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
       gap: 16px;
       margin-top: 48px;
     }
@@ -625,6 +709,7 @@
       .hero-cta, .hero-secondary { display: flex; justify-content: center; margin: 8px auto 0; }
       .hero-buttons { display: flex; flex-direction: column; gap: 10px; align-items: center; }
       .nav-links { display: none; }
+      .states-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
     }
   </style>
 </head>
@@ -643,25 +728,19 @@
           <line x1="15" y1="30" x2="2" y2="28" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
           <line x1="49" y1="30" x2="62" y2="28" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
         </g>
-        <!-- claws -->
         <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
         <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
-        <!-- body -->
         <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
         <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
-        <!-- eye stalks -->
         <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
         <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-        <!-- eyes -->
         <circle cx="21" cy="46" r="4" fill="white"/>
         <circle cx="43" cy="46" r="4" fill="white"/>
         <g class="crab-pupils">
           <circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/>
           <circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/>
         </g>
-        <!-- mouth -->
         <path d="M29,25 Q32,22 35,25" stroke="#e6601a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-        <!-- sparkles -->
         <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
         <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffcc33" opacity="0.3"/>
         <circle class="crab-sparkle" cx="50" cy="54" r="1.5" fill="#ffcc33" opacity="0.3"/>
@@ -681,25 +760,55 @@
 <section class="hero">
   <div class="container">
     <div class="hero-badge">
-      <span>macOS</span> Status Bar App for Claude Code
+      <span>macOS</span> Dynamic Island for Claude Code
     </div>
     <h1>Your Claude sessions<br>as cute little <span class="accent">crabs</span></h1>
-    <p>A macOS status bar app that gives each Claude Code session a unique crab name and shows what they're all up to at a glance.</p>
+    <p>A macOS dynamic island that floats at the top of your screen, giving each Claude Code session a unique crab name and showing what they're all up to at a glance.</p>
     <div class="hero-buttons">
       <a class="hero-cta" href="#install">Get Started</a>
       <a class="hero-secondary" href="https://github.com/svenliebig/claude-observer">View on GitHub</a>
     </div>
 
-    <!-- Menu bar mockup -->
+    <!-- Dynamic Island mockup -->
     <div class="hero-visual">
-      <div class="menubar-mockup">
-        <div class="menubar-top">
-          <div class="menubar-dots">
-            <span></span><span></span><span></span>
-          </div>
-          <div class="menubar-title">Claude Observer</div>
-          <div class="menubar-icon">
-            <svg class="crab-svg crab-working" width="18" height="18" viewBox="0 0 64 64">
+      <div class="island-demo">
+
+        <!-- Compact state -->
+        <div class="island-compact" style="position:relative">
+          <div class="island-compact-label">Compact</div>
+          <svg class="crab-svg crab-working" width="24" height="24" viewBox="0 0 64 64">
+            <g class="crab-legs">
+              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+            </g>
+            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
+            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
+            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
+            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="21" cy="46" r="4" fill="white"/>
+            <circle cx="43" cy="46" r="4" fill="white"/>
+            <g class="crab-pupils"><circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/></g>
+            <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
+            <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffcc33" opacity="0.3"/>
+          </svg>
+          <div class="status-dot"></div>
+          <span class="status-text">2 working</span>
+          <span class="count">3</span>
+        </div>
+
+        <div class="island-arrow">&#8595; click</div>
+
+        <!-- Expanded state -->
+        <div class="island-expanded" style="position:relative">
+          <div class="island-expanded-label">Expanded</div>
+
+          <!-- Header row -->
+          <div class="island-header">
+            <svg class="crab-svg crab-working" width="24" height="24" viewBox="0 0 64 64">
               <g class="crab-legs">
                 <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
                 <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
@@ -716,18 +825,17 @@
               <circle cx="43" cy="46" r="4" fill="white"/>
               <g class="crab-pupils"><circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/></g>
               <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
-              <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffcc33" opacity="0.3"/>
             </svg>
-            <span style="font-size:13px;font-weight:600;color:var(--text)">3</span>
+            <div class="status-dot"></div>
+            <span class="status-text">2 working</span>
+            <span class="count">3</span>
           </div>
-        </div>
-        <div class="menubar-body">
-          <div class="menu-header">Claude Observer</div>
-          <div class="menu-sep"></div>
+
+          <div class="island-sep"></div>
 
           <!-- Session 1: Working -->
-          <div class="menu-item">
-            <svg class="menu-item-icon crab-svg crab-working" viewBox="0 0 64 64">
+          <div class="island-row">
+            <svg class="row-icon crab-svg crab-working" viewBox="0 0 64 64">
               <g class="crab-legs">
                 <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
                 <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
@@ -743,22 +851,22 @@
               <circle cx="21" cy="46" r="4" fill="white"/>
               <circle cx="43" cy="46" r="4" fill="white"/>
               <g class="crab-pupils"><circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/></g>
-              <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
             </svg>
-            <div class="menu-item-content">
-              <div class="menu-item-row">
-                <span style="color:var(--green);font-size:14px">&#9679;</span>
-                <span class="menu-item-name">Pinchy</span>
-                <span class="menu-item-dir">my-api</span>
-                <span class="menu-item-status status-working">WORKING</span>
+            <div class="row-dot" style="background:var(--green)"></div>
+            <div class="row-content">
+              <div class="row-top">
+                <span class="row-name">Pinchy</span>
+                <span class="row-dir">my-api</span>
+                <span class="row-status" style="color:var(--green)">WORKING</span>
               </div>
-              <div class="menu-item-path">~/workspace/projects/my-api</div>
+              <div class="row-path">~/workspace/projects/my-api</div>
             </div>
+            <span class="row-time">3m</span>
           </div>
 
           <!-- Session 2: Needs Input -->
-          <div class="menu-item">
-            <svg class="menu-item-icon crab-svg crab-input" viewBox="0 0 64 64">
+          <div class="island-row">
+            <svg class="row-icon crab-svg crab-input" viewBox="0 0 64 64">
               <g>
                 <line x1="17" y1="22" x2="5" y2="16" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
                 <line x1="47" y1="22" x2="59" y2="16" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
@@ -775,58 +883,53 @@
               <circle cx="43" cy="46" r="4" fill="white"/>
               <circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/>
               <circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/>
-              <ellipse cx="32" cy="24" rx="3.5" ry="2.5" fill="rgba(60,10,10,0.8)"/>
-              <!-- badge -->
               <circle class="crab-badge" cx="54" cy="50" r="9" fill="#ff3b3b" stroke="white" stroke-width="2"/>
               <text x="54" y="54" text-anchor="middle" fill="white" font-size="14" font-weight="bold">!</text>
             </svg>
-            <div class="menu-item-content">
-              <div class="menu-item-row">
-                <span style="color:var(--red);font-size:14px">&#9679;</span>
-                <span class="menu-item-name">Clawdia</span>
-                <span class="menu-item-dir">frontend</span>
-                <span class="menu-item-status status-input">WAITING FOR INPUT</span>
+            <div class="row-dot" style="background:var(--red)"></div>
+            <div class="row-content">
+              <div class="row-top">
+                <span class="row-name">Clawdia</span>
+                <span class="row-dir">frontend</span>
+                <span class="row-status" style="color:var(--orange)">INPUT</span>
               </div>
-              <div class="menu-item-path">~/workspace/projects/frontend</div>
+              <div class="row-path">~/workspace/projects/frontend</div>
             </div>
+            <span class="row-time">12m</span>
           </div>
 
-          <!-- Session 3: Idle -->
-          <div class="menu-item">
-            <svg class="menu-item-icon crab-svg crab-idle" viewBox="0 0 64 64">
-              <g>
-                <line x1="17" y1="22" x2="5" y2="16" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
-                <line x1="47" y1="22" x2="59" y2="16" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
-                <line x1="16" y1="26" x2="3" y2="22" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
-                <line x1="48" y1="26" x2="61" y2="22" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
+          <!-- Session 3: Working -->
+          <div class="island-row">
+            <svg class="row-icon crab-svg crab-working" viewBox="0 0 64 64">
+              <g class="crab-legs">
+                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
               </g>
-              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#7a7a88" opacity="0.4"/>
-              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#7a7a88" opacity="0.4"/>
-              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#7a7a88" opacity="0.4"/>
-              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#6a6a78" opacity="0.4"/>
-              <line x1="22" y1="36" x2="21" y2="44" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
-              <line x1="42" y1="36" x2="43" y2="44" stroke="#7a7a88" stroke-width="3" stroke-linecap="round" opacity="0.4"/>
-              <!-- closed eyes -->
-              <path d="M17,46 A4,4 0 0,1 25,46" stroke="#5a5a68" stroke-width="2" fill="none" opacity="0.6"/>
-              <path d="M39,46 A4,4 0 0,1 47,46" stroke="#5a5a68" stroke-width="2" fill="none" opacity="0.6"/>
-              <!-- zzz -->
-              <text class="crab-zzz" x="46" y="40" fill="#5b5baa" font-size="14" font-weight="800" opacity="0.7">z</text>
-              <text class="crab-zzz" x="52" y="50" fill="#5b5baa" font-size="10" font-weight="700" opacity="0.5">z</text>
+              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
+              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
+              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
+              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
+              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="21" cy="46" r="4" fill="white"/>
+              <circle cx="43" cy="46" r="4" fill="white"/>
+              <g class="crab-pupils"><circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/></g>
             </svg>
-            <div class="menu-item-content">
-              <div class="menu-item-row">
-                <span style="color:var(--text-dim);font-size:14px">&#9675;</span>
-                <span class="menu-item-name">Scuttles</span>
-                <span class="menu-item-dir">infra</span>
-                <span class="menu-item-status status-idle">idle</span>
+            <div class="row-dot" style="background:var(--green)"></div>
+            <div class="row-content">
+              <div class="row-top">
+                <span class="row-name">Scuttles</span>
+                <span class="row-dir">infra</span>
+                <span class="row-status" style="color:var(--green)">WORKING</span>
               </div>
-              <div class="menu-item-path">~/workspace/projects/infra</div>
+              <div class="row-path">~/workspace/projects/infra</div>
             </div>
+            <span class="row-time">1m</span>
           </div>
-
-          <div class="menu-sep"></div>
-          <div class="menu-quit">Quit Claude Observer</div>
         </div>
+
       </div>
     </div>
   </div>
@@ -850,16 +953,16 @@
             <circle cx="43.5" cy="46" r="1.5" fill="#1a1a1a"/>
           </svg>
         </div>
-        <h3>Animated Status Bar Crab</h3>
-        <p>A pixel-art crab lives in your menu bar, with legs that wiggle when Claude is working and eyes that close when idle.</p>
+        <h3>Dynamic Island</h3>
+        <p>A floating pill at the top of your screen with an animated crab. Compact when idle, expands on click to reveal all sessions.</p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon green">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
         </div>
-        <h3>Session Dropdown</h3>
-        <p>Click the crab to see all active sessions, each with its own crab name, working directory, and real-time status.</p>
+        <h3>Ambient Glow</h3>
+        <p>The island glows green while working, pulses orange when a session needs input, and flashes pink on errors.</p>
       </div>
 
       <div class="feature-card">
@@ -867,15 +970,15 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff3b3b" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </div>
         <h3>Desktop Notifications</h3>
-        <p>Get a native macOS notification with a "ding" sound when any Claude session needs your input or permission.</p>
+        <p>Get a native macOS notification with a sound when any Claude session needs your input or permission.</p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon blue">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b7fff" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b7fff" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         </div>
-        <h3>Auto-Cleanup</h3>
-        <p>Stale sessions from crashed or killed Claude processes are automatically detected and cleaned up.</p>
+        <h3>Tmux Navigation</h3>
+        <p>Click any session to instantly focus its tmux pane. Selects the right window, pane, and activates your terminal.</p>
       </div>
 
       <div class="feature-card">
@@ -933,7 +1036,7 @@
           </svg>
         </div>
         <h3 style="color:var(--accent)">Working</h3>
-        <p>Orange crab with wiggling legs and sparkles. Claude is processing your request.</p>
+        <p>Orange crab with wiggling legs and sparkles. Claude is processing.</p>
       </div>
 
       <!-- Needs Input -->
@@ -964,7 +1067,38 @@
           </svg>
         </div>
         <h3 style="color:var(--red)">Needs Input</h3>
-        <p>Red bouncing crab with "!" badge. Claude needs your attention right now.</p>
+        <p>Red bouncing crab with "!" badge. Claude needs your attention.</p>
+      </div>
+
+      <!-- Needs Permission -->
+      <div class="state-card">
+        <div class="state-crab">
+          <svg class="crab-svg crab-input" width="64" height="64" viewBox="0 0 64 64">
+            <g>
+              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="15" y1="30" x2="2" y2="28" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="49" y1="30" x2="62" y2="28" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
+            </g>
+            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff9500"/>
+            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff9500"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff9500"/>
+            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#d98000"/>
+            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="21" cy="46" r="4" fill="white"/>
+            <circle cx="43" cy="46" r="4" fill="white"/>
+            <circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/>
+            <circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/>
+            <ellipse cx="32" cy="24" rx="3.5" ry="2.5" fill="rgba(60,30,0,0.8)"/>
+            <circle class="crab-badge" cx="54" cy="52" r="9" fill="#ff9500" stroke="white" stroke-width="2"/>
+            <text x="54" y="56" text-anchor="middle" fill="white" font-size="14" font-weight="bold">!</text>
+          </svg>
+        </div>
+        <h3 style="color:var(--orange)">Needs Permission</h3>
+        <p>Orange bouncing crab with "!" badge. A tool needs your approval.</p>
       </div>
 
       <!-- Idle -->
@@ -992,7 +1126,7 @@
           </svg>
         </div>
         <h3 style="color:var(--text-dim)">Idle</h3>
-        <p>Faded gray crab with closed eyes and floating "z"s. Waiting for your next prompt.</p>
+        <p>Gray crab with closed eyes and floating "z"s. Waiting for a prompt.</p>
       </div>
 
       <!-- Error -->
@@ -1023,7 +1157,7 @@
           </svg>
         </div>
         <h3 style="color:var(--pink)">Error</h3>
-        <p>Pink crab with an alert badge. An API error occurred in this session.</p>
+        <p>Pink crab with an alert badge. An API error occurred.</p>
       </div>
     </div>
   </div>
@@ -1042,28 +1176,28 @@
           <div class="how-num">1</div>
           <div>
             <h4>Hook Events Fire</h4>
-            <p>Claude Code triggers hooks on session lifecycle events: start, prompt submit, stop, error, and notification.</p>
+            <p>Claude Code triggers hooks on lifecycle events: session start/end, prompt submit, tool use, notifications, permission requests, and subagent activity.</p>
           </div>
         </div>
         <div class="how-step">
           <div class="how-num">2</div>
           <div>
             <h4>Python Hook Writes State</h4>
-            <p>The observer hook script receives event data via stdin and writes/updates a JSON file per session to <code>~/.claude-observer/sessions/</code>.</p>
+            <p>The observer hook script receives event data via stdin and atomically writes a JSON file per session to <code>~/.claude-observer/sessions/</code>.</p>
           </div>
         </div>
         <div class="how-step">
           <div class="how-num">3</div>
           <div>
-            <h4>Swift App Polls</h4>
-            <p>The status bar app polls the sessions directory every 2 seconds, reads the JSON files, and updates the menu bar display.</p>
+            <h4>Dynamic Island Polls</h4>
+            <p>The floating panel polls the sessions directory every 2 seconds, reads the JSON files, and updates the island display with animated crabs and glow effects.</p>
           </div>
         </div>
         <div class="how-step">
           <div class="how-num">4</div>
           <div>
-            <h4>Notifications & Cleanup</h4>
-            <p>When a session transitions to "needs input", a native macOS notification is sent. Dead sessions are automatically cleaned up.</p>
+            <h4>Notifications & Navigation</h4>
+            <p>When a session needs attention, a native macOS notification fires. Clicking a session in the expanded island focuses its tmux pane.</p>
           </div>
         </div>
       </div>
@@ -1074,7 +1208,7 @@
           <div class="flow-arrow">&#8595;</div>
           <div class="flow-node file-node">Python hook writes JSON<br><code>~/.claude-observer/sessions/{id}.json</code></div>
           <div class="flow-arrow">&#8595;</div>
-          <div class="flow-node app-node">Swift app reads &amp; renders<br><code>NSStatusBar</code> + animated crab + dropdown menu</div>
+          <div class="flow-node app-node">Dynamic island reads &amp; renders<br><code>NSPanel</code> + animated crab + glow effects</div>
         </div>
 
         <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border)">
@@ -1084,10 +1218,22 @@
             <div style="color:var(--text-dim)">Creates session file</div>
             <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">UserPromptSubmit</code></div>
             <div style="color:var(--text-dim)">Marks as "working"</div>
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">PreToolUse</code></div>
+            <div style="color:var(--text-dim)">Marks as "working"</div>
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">PostToolUse</code></div>
+            <div style="color:var(--text-dim)">Marks as "working"</div>
             <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">Stop</code></div>
             <div style="color:var(--text-dim)">Marks as "idle"</div>
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">StopFailure</code></div>
+            <div style="color:var(--text-dim)">Marks as "error"</div>
             <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">Notification</code></div>
             <div style="color:var(--text-dim)">Marks as "needs input"</div>
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">PermissionRequest</code></div>
+            <div style="color:var(--text-dim)">Marks as "needs permission"</div>
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">SubagentStart</code></div>
+            <div style="color:var(--text-dim)">Marks as "working"</div>
+            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">SubagentStop</code></div>
+            <div style="color:var(--text-dim)">Updates activity</div>
             <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">SessionEnd</code></div>
             <div style="color:var(--text-dim)">Removes session file</div>
           </div>
