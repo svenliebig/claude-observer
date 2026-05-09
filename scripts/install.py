@@ -18,8 +18,15 @@ def main():
     print()
 
     # Create directories
-    for d in ["bin", "hooks", "sessions"]:
+    for d in ["bin", "hooks", "sessions", "web"]:
         os.makedirs(os.path.join(OBSERVER_DIR, d), exist_ok=True)
+
+    # Copy web assets
+    src_web = os.path.join(PROJECT_DIR, "web", "index.html")
+    dst_web = os.path.join(OBSERVER_DIR, "web", "index.html")
+    if os.path.exists(src_web):
+        shutil.copy2(src_web, dst_web)
+        print(f"  Web dashboard -> {dst_web}")
 
     # Copy hook script
     src_hook = os.path.join(PROJECT_DIR, "hooks", "observer-hook.py")
@@ -34,7 +41,7 @@ def main():
     print("  Compiling status bar app...")
 
     result = subprocess.run(
-        ["swiftc", "-O", "-o", binary, swift_src, "-framework", "Cocoa"],
+        ["swiftc", "-O", "-o", binary, swift_src, "-framework", "Cocoa", "-framework", "Network"],
         capture_output=True,
         text=True,
     )

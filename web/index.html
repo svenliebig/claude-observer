@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0f">
+<title>Claude Observer</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI0IiBmaWxsPSIjMGEwYTBmIi8+PHRleHQgeD0iNjQiIHk9Ijk2IiBmb250LXNpemU9Ijg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7wn6aAPC90ZXh0Pjwvc3ZnPg==">
+<link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkNsYXVkZSBPYnNlcnZlciIsCiAgInNob3J0X25hbWUiOiAiT2JzZXJ2ZXIiLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBhMGEwZiIsCiAgInRoZW1lX2NvbG9yIjogIiMwYTBhMGYiLAogICJpY29ucyI6IFt7CiAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbCw8c3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgdmlld0JveD0nMCAwIDEyOCAxMjgnPjxyZWN0IHdpZHRoPScxMjgnIGhlaWdodD0nMTI4JyByeD0nMjQnIGZpbGw9JyUyMzBhMGEwZicvPjx0ZXh0IHg9JzY0JyB5PSc5NicgZm9udC1zaXplPSc4OCcgdGV4dC1hbmNob3I9J21pZGRsZSc+8J+mgDwvdGV4dD48L3N2Zz4iLAogICAgInNpemVzIjogIjEyOHgxMjgiLAogICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCIKICB9XQp9">
+<style>
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0a0a0f;
+  --card-bg: #1a1a2e;
+  --card-border: #2a2a3e;
+  --text: #e4e4ed;
+  --text-muted: #8888a0;
+  --text-dim: #55556a;
+  --green: #34d399;
+  --orange: #fb923c;
+  --red: #f87171;
+  --blue: #60a5fa;
+  --gray: #6b7280;
+  --radius: 16px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+body {
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+
+.app {
+  max-width: 500px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ────────────────────────────────────────────── */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 16px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(to bottom, var(--bg) 70%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.header-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding: 4px 10px 4px 8px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.connection-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--red);
+  transition: background 0.3s ease;
+}
+
+.connection-dot.connected {
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.5);
+}
+
+/* ── Session List ──────────────────────────────────────── */
+.sessions {
+  flex: 1;
+  padding: 4px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Session Card ──────────────────────────────────────── */
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--card-border);
+  padding: 16px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.card-name {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.2px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.working   { background: var(--green);  box-shadow: 0 0 6px rgba(52,211,153,0.5); }
+.status-dot.idle      { background: var(--gray); }
+.status-dot.needs_input { background: var(--orange); box-shadow: 0 0 6px rgba(251,146,60,0.4); }
+.status-dot.needs_permission { background: var(--blue); box-shadow: 0 0 6px rgba(96,165,250,0.5); }
+.status-dot.error     { background: var(--red);   box-shadow: 0 0 6px rgba(248,113,113,0.5); }
+
+.status-label {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: auto;
+}
+
+.status-label.working        { color: var(--green); }
+.status-label.idle           { color: var(--gray); }
+.status-label.needs_input    { color: var(--orange); }
+.status-label.needs_permission { color: var(--blue); }
+.status-label.error          { color: var(--red); }
+
+.card-cwd {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.card-elapsed {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ── Permission Card ───────────────────────────────────── */
+.card.permission {
+  border-color: rgba(96, 165, 250, 0.35);
+  box-shadow: 0 0 20px rgba(96, 165, 250, 0.08), inset 0 0 20px rgba(96, 165, 250, 0.03);
+}
+
+.permission-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.permission-tool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.permission-tool-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--blue);
+  background: rgba(96, 165, 250, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.permission-summary {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+  margin-bottom: 10px;
+  word-break: break-word;
+}
+
+.permission-content {
+  background: #12121e;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #c4c4d8;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.permission-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.permission-actions button {
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.permission-actions button:active {
+  transform: scale(0.96);
+  opacity: 0.85;
+}
+
+.btn-allow {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(52, 211, 153, 0.25) !important;
+}
+
+.btn-deny {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(248, 113, 113, 0.25) !important;
+}
+
+.btn-always {
+  background: rgba(96, 165, 250, 0.15);
+  color: var(--blue);
+  border: 1px solid rgba(96, 165, 250, 0.25) !important;
+}
+
+.permission-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
+}
+
+.responding-label {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 11px 0;
+  font-weight: 500;
+}
+
+/* ── Empty State ───────────────────────────────────────── */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 20px;
+}
+
+.empty-crab {
+  font-size: 56px;
+  opacity: 0.2;
+  filter: grayscale(1);
+}
+
+.empty-text {
+  font-size: 15px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+/* ── Animations ────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.status-dot.working {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+  animation: fade-in 0.25s ease-out;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <div class="header-title">Claude Observer</div>
+    <div class="connection-status">
+      <div class="connection-dot" id="conn-dot"></div>
+      <span id="conn-label">Disconnected</span>
+    </div>
+  </header>
+  <main class="sessions" id="sessions">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-crab">&#x1F980;</div>
+      <div class="empty-text">No active sessions</div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── State ─────────────────────────────────────────────
+  let ws = null;
+  let sessions = [];
+  let respondingSessions = new Set();
+  let previousPermissionSessions = new Set();
+  let reconnectDelay = 1000;
+  let reconnectTimer = null;
+  let elapsedTimer = null;
+  let audioCtx = null;
+
+  // ── DOM refs ──────────────────────────────────────────
+  const sessionsEl = document.getElementById('sessions');
+  const emptyStateEl = document.getElementById('empty-state');
+  const connDot = document.getElementById('conn-dot');
+  const connLabel = document.getElementById('conn-label');
+
+  function sessionsFingerprint(list) {
+    return list.map(function (s) {
+      return s.id + ':' + s.status + ':' + (s.permission_request ? s.permission_request.tool_name : '');
+    }).sort().join('|');
+  }
+
+  function updateSessions(newSessions) {
+    var newFP = sessionsFingerprint(newSessions);
+    var oldFP = sessionsFingerprint(sessions);
+    // Always update the data (for fresh last_activity values in updateElapsedTimes)
+    detectNewPermissions(newSessions);
+    sessions = newSessions;
+    // Only re-render DOM when structure actually changed
+    if (newFP !== oldFP) {
+      render();
+    }
+  }
+
+  // ── Elapsed time formatting ───────────────────────────
+  function formatElapsed(isoStr) {
+    if (!isoStr) return '';
+    const diffMs = Date.now() - new Date(isoStr).getTime();
+    if (diffMs < 0) return 'just now';
+    const secs = Math.floor(diffMs / 1000);
+    if (secs < 60) return secs + 's ago';
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return mins + 'm ' + (secs % 60) + 's ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ' + (mins % 60) + 'm ago';
+    const days = Math.floor(hrs / 24);
+    return days + 'd ' + (hrs % 24) + 'h ago';
+  }
+
+  // ── Status label text ─────────────────────────────────
+  function statusText(status) {
+    switch (status) {
+      case 'working': return 'Working';
+      case 'idle': return 'Idle';
+      case 'needs_input': return 'Needs Input';
+      case 'needs_permission': return 'Permission';
+      case 'error': return 'Error';
+      default: return status || 'Unknown';
+    }
+  }
+
+  // ── Escape HTML ───────────────────────────────────────
+  function esc(str) {
+    if (!str) return '';
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  // ── Truncate lines for code preview ───────────────────
+  function truncateContent(content, maxLines) {
+    if (!content) return '';
+    const lines = content.split('\n');
+    if (lines.length <= maxLines) return esc(content);
+    return esc(lines.slice(0, maxLines).join('\n')) + '\n...';
+  }
+
+  // ── Build a session card ──────────────────────────────
+  function buildCard(session) {
+    const isPermission = session.status === 'needs_permission' && session.permission_request;
+    const isResponding = respondingSessions.has(session.id);
+
+    let html = '<div class="card' + (isPermission ? ' permission' : '') + '" data-id="' + esc(session.id) + '">';
+
+    // Header row
+    html += '<div class="card-header">';
+    html += '<span class="status-dot ' + esc(session.status) + '"></span>';
+    html += '<span class="card-name">' + esc(session.name) + '</span>';
+    html += '<span class="status-label ' + esc(session.status) + '">' + statusText(session.status) + '</span>';
+    html += '</div>';
+
+    // CWD
+    html += '<div class="card-cwd">' + esc(session.cwd) + '</div>';
+
+    // Elapsed
+    html += '<div class="card-elapsed" data-last-activity="' + esc(session.last_activity) + '">'
+      + formatElapsed(session.last_activity) + '</div>';
+
+    // Permission section
+    if (isPermission) {
+      const pr = session.permission_request;
+      html += '<div class="permission-section">';
+      html += '<div class="permission-tool">';
+      html += '<span class="permission-tool-name">' + esc(pr.tool_name) + '</span>';
+      html += '</div>';
+      if (pr.tool_summary) {
+        html += '<div class="permission-summary">' + esc(pr.tool_summary) + '</div>';
+      }
+      if (pr.tool_content) {
+        html += '<div class="permission-content">' + truncateContent(pr.tool_content, 10) + '</div>';
+      }
+      if (isResponding) {
+        html += '<div class="responding-label">Responding...</div>';
+      } else {
+        html += '<div class="permission-actions">';
+        html += '<button class="btn-allow" onclick="handlePermission(\'' + esc(session.id) + '\',\'allow\')">Allow</button>';
+        html += '<button class="btn-deny" onclick="handlePermission(\'' + esc(session.id) + '\',\'deny\')">Deny</button>';
+        html += '<button class="btn-always" onclick="handlePermission(\'' + esc(session.id) + '\',\'always_allow\')">Always</button>';
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  // ── Render all sessions ───────────────────────────────
+  function render() {
+    if (!sessions.length) {
+      sessionsEl.innerHTML = '';
+      sessionsEl.appendChild(emptyStateEl);
+      emptyStateEl.style.display = '';
+      return;
+    }
+
+    emptyStateEl.style.display = 'none';
+
+    // Sort: needs_permission first, then by last_activity descending
+    const sorted = sessions.slice().sort(function (a, b) {
+      if (a.status === 'needs_permission' && b.status !== 'needs_permission') return -1;
+      if (b.status === 'needs_permission' && a.status !== 'needs_permission') return 1;
+      return new Date(b.last_activity || 0) - new Date(a.last_activity || 0);
+    });
+
+    let html = '';
+    for (let i = 0; i < sorted.length; i++) {
+      html += buildCard(sorted[i]);
+    }
+    sessionsEl.innerHTML = html;
+    sessionsEl.appendChild(emptyStateEl);
+  }
+
+  // ── Elapsed time updater ──────────────────────────────
+  function updateElapsedTimes() {
+    const els = document.querySelectorAll('.card-elapsed[data-last-activity]');
+    for (let i = 0; i < els.length; i++) {
+      const la = els[i].getAttribute('data-last-activity');
+      if (la) els[i].textContent = formatElapsed(la);
+    }
+  }
+
+  // ── Audio alert for permission requests ───────────────
+  function playPermissionTone() {
+    try {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(audioCtx.currentTime);
+      osc.stop(audioCtx.currentTime + 0.2);
+    } catch (e) {
+      // Audio may be blocked by browser policy; ignore
+    }
+  }
+
+  function alertPermission() {
+    if (navigator.vibrate) {
+      navigator.vibrate([200, 100, 200]);
+    }
+    playPermissionTone();
+  }
+
+  // ── Detect new permission requests ────────────────────
+  function detectNewPermissions(newSessions) {
+    var currentPermissionIds = new Set();
+    for (var i = 0; i < newSessions.length; i++) {
+      if (newSessions[i].status === 'needs_permission') {
+        currentPermissionIds.add(newSessions[i].id);
+      }
+    }
+
+    var hasNew = false;
+    currentPermissionIds.forEach(function (id) {
+      if (!previousPermissionSessions.has(id)) {
+        hasNew = true;
+      }
+    });
+
+    previousPermissionSessions = currentPermissionIds;
+
+    if (hasNew) {
+      // Clear responding state for sessions that are back to needing permission
+      respondingSessions.forEach(function (id) {
+        if (currentPermissionIds.has(id)) {
+          // Still needs permission after responding: keep responding state
+        } else {
+          respondingSessions.delete(id);
+        }
+      });
+      alertPermission();
+    }
+
+    // Clear responding state for sessions no longer needing permission
+    respondingSessions.forEach(function (id) {
+      if (!currentPermissionIds.has(id)) {
+        respondingSessions.delete(id);
+      }
+    });
+  }
+
+  // ── Handle permission button click ────────────────────
+  window.handlePermission = function (sessionId, decision) {
+    respondingSessions.add(sessionId);
+    render();
+
+    var payload = JSON.stringify({
+      type: 'permission_response',
+      session_id: sessionId,
+      decision: decision
+    });
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(payload);
+    } else {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/permission-response');
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(payload);
+    }
+  };
+
+  // ── Connection status UI ──────────────────────────────
+  function setConnected(connected) {
+    if (connected) {
+      connDot.classList.add('connected');
+      connLabel.textContent = 'Connected';
+    } else {
+      connDot.classList.remove('connected');
+      connLabel.textContent = 'Disconnected';
+    }
+  }
+
+  // ── WebSocket ─────────────────────────────────────────
+  function getWsUrl() {
+    var loc = window.location;
+    var proto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
+    return proto + '//' + loc.host + '/ws';
+  }
+
+  function connect() {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+
+    try {
+      ws = new WebSocket(getWsUrl());
+    } catch (e) {
+      scheduleReconnect();
+      return;
+    }
+
+    ws.onopen = function () {
+      wsConnected = true;
+      stopPolling();
+      setConnected(true);
+      reconnectDelay = 1000;
+    };
+
+    ws.onmessage = function (event) {
+      try {
+        var msg = JSON.parse(event.data);
+        if (msg.type === 'sessions') {
+          updateSessions(msg.sessions);
+        }
+      } catch (e) {
+        // Malformed message; ignore
+      }
+    };
+
+    ws.onclose = function () {
+      wsConnected = false;
+      setConnected(false);
+      ws = null;
+      scheduleReconnect();
+    };
+
+    ws.onerror = function () {
+      // onclose will fire after onerror
+    };
+  }
+
+  // ── HTTP polling fallback ─────────────────────────────
+  var pollTimer = null;
+  var wsConnected = false;
+
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(function () {
+      if (wsConnected) return;
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', '/api/sessions');
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          try {
+            var msg = JSON.parse(xhr.responseText);
+            if (msg.type === 'sessions') {
+              setConnected(true);
+              updateSessions(msg.sessions);
+            }
+          } catch (e) {}
+        }
+      };
+      xhr.onerror = function () { setConnected(false); };
+      xhr.send();
+    }, 2000);
+  }
+
+  function stopPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function scheduleReconnect() {
+    if (reconnectTimer) return;
+    startPolling();
+    reconnectTimer = setTimeout(function () {
+      reconnectTimer = null;
+      connect();
+    }, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 2, 10000);
+  }
+
+  // ── Init ──────────────────────────────────────────────
+  connect();
+  elapsedTimer = setInterval(updateElapsedTimes, 1000);
+})();
+</script>
+</body>
+</html>

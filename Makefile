@@ -4,8 +4,9 @@ OBSERVER_DIR = $(HOME)/.claude-observer
 BINARY = $(OBSERVER_DIR)/bin/claude-observer
 
 build:
-	@mkdir -p $(OBSERVER_DIR)/bin
-	swiftc -O -o $(BINARY) Sources/main.swift -framework Cocoa
+	@mkdir -p $(OBSERVER_DIR)/bin $(OBSERVER_DIR)/web
+	swiftc -O -o $(BINARY) Sources/main.swift -framework Cocoa -framework Network
+	@cp -f web/index.html $(OBSERVER_DIR)/web/index.html 2>/dev/null || true
 	@echo "Built: $(BINARY)"
 
 install:

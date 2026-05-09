@@ -1,4 +1,6 @@
 import Cocoa
+import Network
+import CryptoKit
 
 // MARK: - Constants
 
@@ -7,6 +9,9 @@ let kStateDir = FileManager.default.homeDirectoryForCurrentUser
 
 let kSettingsFile = FileManager.default.homeDirectoryForCurrentUser
     .appendingPathComponent(".claude-observer/settings.json")
+
+let kWebDir = FileManager.default.homeDirectoryForCurrentUser
+    .appendingPathComponent(".claude-observer/web")
 
 let kSystemSounds: [String] = {
     let soundsDir = "/System/Library/Sounds"
@@ -50,13 +55,35 @@ private func elapsedString(since isoString: String) -> String {
 struct ObserverSettings: Codable {
     var permissionSound: String
     var errorSound: String
+    var webDashboardEnabled: Bool
+    var webDashboardPort: Int
 
     enum CodingKeys: String, CodingKey {
         case permissionSound = "permission_sound"
         case errorSound = "error_sound"
+        case webDashboardEnabled = "web_dashboard_enabled"
+        case webDashboardPort = "web_dashboard_port"
     }
 
-    static let defaults = ObserverSettings(permissionSound: "Ping", errorSound: "Basso")
+    static let defaults = ObserverSettings(
+        permissionSound: "Ping", errorSound: "Basso",
+        webDashboardEnabled: false, webDashboardPort: 9321
+    )
+
+    init(permissionSound: String, errorSound: String, webDashboardEnabled: Bool, webDashboardPort: Int) {
+        self.permissionSound = permissionSound
+        self.errorSound = errorSound
+        self.webDashboardEnabled = webDashboardEnabled
+        self.webDashboardPort = webDashboardPort
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        permissionSound = (try? c.decode(String.self, forKey: .permissionSound)) ?? Self.defaults.permissionSound
+        errorSound = (try? c.decode(String.self, forKey: .errorSound)) ?? Self.defaults.errorSound
+        webDashboardEnabled = (try? c.decode(Bool.self, forKey: .webDashboardEnabled)) ?? Self.defaults.webDashboardEnabled
+        webDashboardPort = (try? c.decode(Int.self, forKey: .webDashboardPort)) ?? Self.defaults.webDashboardPort
+    }
 
     static func load() -> ObserverSettings {
         guard let data = try? Data(contentsOf: kSettingsFile),
@@ -80,6 +107,11 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
     private var settings: ObserverSettings
     private var permissionPopUp: NSPopUpButton!
     private var errorPopUp: NSPopUpButton!
+    private var dashCheckbox: NSButton!
+    private var dashPortField: NSTextField!
+    private var dashUrlLabel: NSTextField!
+    private var dashPortLabel: NSTextField!
+    var onDashboardSettingsChanged: (() -> Void)?
 
     override init() {
         self.settings = ObserverSettings.load()
@@ -95,8 +127,9 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
 
         settings = ObserverSettings.load()
 
+        let windowHeight: CGFloat = 310
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 150),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: windowHeight),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -109,44 +142,101 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
         let contentView = NSView(frame: w.contentView!.bounds)
         contentView.autoresizingMask = [.width, .height]
 
+        var y = windowHeight - 40
+
+        // --- Sound Settings ---
+        let soundHeader = NSTextField(labelWithString: "Sound Alerts")
+        soundHeader.frame = NSRect(x: 20, y: y, width: 200, height: 18)
+        soundHeader.font = NSFont.boldSystemFont(ofSize: 13)
+        contentView.addSubview(soundHeader)
+        y -= 34
+
         let soundOptions = ["None (disabled)"] + kSystemSounds
 
-        // Permission sound row
         let permLabel = NSTextField(labelWithString: "Permission sound:")
-        permLabel.frame = NSRect(x: 20, y: 100, width: 140, height: 20)
+        permLabel.frame = NSRect(x: 20, y: y, width: 140, height: 20)
         permLabel.alignment = .right
         contentView.addSubview(permLabel)
 
-        permissionPopUp = NSPopUpButton(frame: NSRect(x: 170, y: 97, width: 180, height: 26))
+        permissionPopUp = NSPopUpButton(frame: NSRect(x: 170, y: y - 3, width: 180, height: 26))
         permissionPopUp.addItems(withTitles: soundOptions)
         selectSound(settings.permissionSound, in: permissionPopUp)
         permissionPopUp.target = self
         permissionPopUp.action = #selector(permissionSoundChanged(_:))
         contentView.addSubview(permissionPopUp)
+        y -= 34
 
-        // Error sound row
         let errorLabel = NSTextField(labelWithString: "Error sound:")
-        errorLabel.frame = NSRect(x: 20, y: 60, width: 140, height: 20)
+        errorLabel.frame = NSRect(x: 20, y: y, width: 140, height: 20)
         errorLabel.alignment = .right
         contentView.addSubview(errorLabel)
 
-        errorPopUp = NSPopUpButton(frame: NSRect(x: 170, y: 57, width: 180, height: 26))
+        errorPopUp = NSPopUpButton(frame: NSRect(x: 170, y: y - 3, width: 180, height: 26))
         errorPopUp.addItems(withTitles: soundOptions)
         selectSound(settings.errorSound, in: errorPopUp)
         errorPopUp.target = self
         errorPopUp.action = #selector(errorSoundChanged(_:))
         contentView.addSubview(errorPopUp)
 
-        // Preview button
         let previewBtn = NSButton(title: "Preview", target: self, action: #selector(previewSound(_:)))
         previewBtn.bezelStyle = .rounded
-        previewBtn.frame = NSRect(x: 280, y: 18, width: 80, height: 28)
+        previewBtn.frame = NSRect(x: 360, y: y - 3, width: 40, height: 26)
+        previewBtn.font = NSFont.systemFont(ofSize: 10)
         contentView.addSubview(previewBtn)
+        y -= 30
+
+        // --- Separator ---
+        let sep = NSBox(frame: NSRect(x: 20, y: y, width: 380, height: 1))
+        sep.boxType = .separator
+        contentView.addSubview(sep)
+        y -= 24
+
+        // --- Web Dashboard ---
+        let dashHeader = NSTextField(labelWithString: "Phone Dashboard (PWA)")
+        dashHeader.frame = NSRect(x: 20, y: y, width: 250, height: 18)
+        dashHeader.font = NSFont.boldSystemFont(ofSize: 13)
+        contentView.addSubview(dashHeader)
+        y -= 30
+
+        dashCheckbox = NSButton(checkboxWithTitle: "Enable web dashboard", target: self, action: #selector(dashEnabledChanged(_:)))
+        dashCheckbox.frame = NSRect(x: 20, y: y, width: 250, height: 20)
+        dashCheckbox.state = settings.webDashboardEnabled ? .on : .off
+        contentView.addSubview(dashCheckbox)
+        y -= 30
+
+        dashPortLabel = NSTextField(labelWithString: "Port:")
+        dashPortLabel.frame = NSRect(x: 20, y: y, width: 100, height: 20)
+        dashPortLabel.alignment = .right
+        contentView.addSubview(dashPortLabel)
+
+        dashPortField = NSTextField(frame: NSRect(x: 130, y: y - 2, width: 80, height: 24))
+        dashPortField.stringValue = "\(settings.webDashboardPort)"
+        dashPortField.placeholderString = "9321"
+        dashPortField.target = self
+        dashPortField.action = #selector(dashPortChanged(_:))
+        contentView.addSubview(dashPortField)
+
+        let lanIP = localIPAddress() ?? "<your-mac-ip>"
+        let port = settings.webDashboardPort
+        dashUrlLabel = NSTextField(labelWithString: "Open on phone: http://\(lanIP):\(port)")
+        dashUrlLabel.frame = NSRect(x: 130, y: y - 24, width: 280, height: 16)
+        dashUrlLabel.font = NSFont.systemFont(ofSize: 11)
+        dashUrlLabel.textColor = .secondaryLabelColor
+        contentView.addSubview(dashUrlLabel)
+
+        updateDashFieldVisibility()
 
         w.contentView = contentView
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = w
+    }
+
+    private func updateDashFieldVisibility() {
+        let on = dashCheckbox.state == .on
+        dashPortLabel.isHidden = !on
+        dashPortField.isHidden = !on
+        dashUrlLabel.isHidden = !on
     }
 
     private func selectSound(_ name: String, in popUp: NSPopUpButton) {
@@ -186,8 +276,288 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
         try? task.run()
     }
 
+    @objc private func dashEnabledChanged(_ sender: NSButton) {
+        settings.webDashboardEnabled = sender.state == .on
+        settings.save()
+        updateDashFieldVisibility()
+        onDashboardSettingsChanged?()
+    }
+
+    @objc private func dashPortChanged(_ sender: NSTextField) {
+        settings.webDashboardPort = Int(dashPortField.stringValue) ?? ObserverSettings.defaults.webDashboardPort
+        settings.save()
+        onDashboardSettingsChanged?()
+    }
+
     func windowWillClose(_ notification: Notification) {
         window = nil
+    }
+}
+
+// MARK: - LAN IP Detection
+
+private func localIPAddress() -> String? {
+    var ifaddr: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
+    defer { freeifaddrs(ifaddr) }
+    for ptr in sequence(first: first, next: { $0.pointee.ifa_next }) {
+        let addr = ptr.pointee
+        guard addr.ifa_addr.pointee.sa_family == UInt8(AF_INET) else { continue }
+        let name = String(cString: addr.ifa_name)
+        guard name.hasPrefix("en") else { continue }
+        var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+        if getnameinfo(addr.ifa_addr, socklen_t(addr.ifa_addr.pointee.sa_len),
+                       &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST) == 0 {
+            let ip = String(cString: hostname)
+            if ip != "127.0.0.1" { return ip }
+        }
+    }
+    return nil
+}
+
+// MARK: - Web Dashboard Server
+
+class WebDashboardServer {
+    private var listener: NWListener?
+    private var wsClients: [ObjectIdentifier: NWConnection] = [:]
+    private let queue = DispatchQueue(label: "web-dashboard")
+    private let port: UInt16
+    private var lastBroadcast: String = "{\"type\":\"sessions\",\"sessions\":[]}"
+    var onPermissionResponse: ((String, String) -> Void)?
+
+    init(port: UInt16) {
+        self.port = port
+    }
+
+    func start() {
+        guard let nwPort = NWEndpoint.Port(rawValue: port) else { return }
+        do {
+            listener = try NWListener(using: .tcp, on: nwPort)
+        } catch { return }
+
+        listener?.newConnectionHandler = { [weak self] conn in
+            conn.start(queue: self?.queue ?? .main)
+            self?.receiveHTTPRequest(on: conn)
+        }
+        listener?.stateUpdateHandler = { state in
+            if case .ready = state {
+                print("Web dashboard listening on port \(self.port)")
+            }
+        }
+        listener?.start(queue: queue)
+    }
+
+    func stop() {
+        listener?.cancel()
+        listener = nil
+        for (_, conn) in wsClients { conn.cancel() }
+        wsClients.removeAll()
+    }
+
+    var isRunning: Bool { listener?.state == .ready }
+
+    func broadcastSessions(_ sessions: [CrabSession]) {
+        let encoder = JSONEncoder()
+        guard let data = try? encoder.encode(sessions),
+              let json = String(data: data, encoding: .utf8) else { return }
+        let message = "{\"type\":\"sessions\",\"sessions\":\(json)}"
+        lastBroadcast = message
+        queue.async {
+            for (_, conn) in self.wsClients {
+                self.sendWSText(message, on: conn)
+            }
+        }
+    }
+
+    // MARK: HTTP
+
+    private func receiveHTTPRequest(on conn: NWConnection) {
+        conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, _, error in
+            guard let self = self, let data = data, error == nil else {
+                conn.cancel()
+                return
+            }
+            let request = String(data: data, encoding: .utf8) ?? ""
+            if request.lowercased().contains("upgrade: websocket") {
+                self.handleWSUpgrade(request, on: conn)
+            } else {
+                self.handleHTTP(request, on: conn)
+            }
+        }
+    }
+
+    private func handleHTTP(_ request: String, on conn: NWConnection) {
+        let firstLine = request.split(separator: "\r\n").first.map(String.init) ?? ""
+        let parts = firstLine.split(separator: " ")
+        let method = parts.count > 0 ? String(parts[0]) : ""
+        let path = parts.count > 1 ? String(parts[1]) : "/"
+
+        if method == "GET" && (path == "/" || path == "/index.html") {
+            serveFile("index.html", contentType: "text/html; charset=utf-8", on: conn)
+        } else if method == "GET" && path == "/manifest.json" {
+            serveFile("manifest.json", contentType: "application/json", on: conn)
+        } else if method == "GET" && path == "/api/sessions" {
+            sendHTTP(conn, status: "200 OK", contentType: "application/json", body: lastBroadcast)
+        } else if method == "POST" && path == "/api/permission-response" {
+            // Extract body after \r\n\r\n
+            if let bodyRange = request.range(of: "\r\n\r\n") {
+                let body = String(request[bodyRange.upperBound...])
+                handlePermissionPost(body)
+            }
+            sendHTTP(conn, status: "200 OK", contentType: "application/json", body: "{\"ok\":true}")
+        } else if method == "OPTIONS" {
+            sendHTTP(conn, status: "204 No Content", contentType: "text/plain", body: "")
+        } else {
+            sendHTTP(conn, status: "404 Not Found", contentType: "text/plain", body: "Not Found")
+        }
+    }
+
+    private func serveFile(_ name: String, contentType: String, on conn: NWConnection) {
+        let filePath = kWebDir.appendingPathComponent(name)
+        if let content = try? String(contentsOf: filePath, encoding: .utf8) {
+            sendHTTP(conn, status: "200 OK", contentType: contentType, body: content)
+        } else {
+            sendHTTP(conn, status: "404 Not Found", contentType: "text/plain", body: "File not found")
+        }
+    }
+
+    private func sendHTTP(_ conn: NWConnection, status: String, contentType: String, body: String) {
+        let bodyData = Data(body.utf8)
+        let header = "HTTP/1.1 \(status)\r\nContent-Type: \(contentType)\r\nContent-Length: \(bodyData.count)\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n"
+        var response = Data(header.utf8)
+        response.append(bodyData)
+        conn.send(content: response, completion: .contentProcessed { _ in conn.cancel() })
+    }
+
+    private func handlePermissionPost(_ body: String) {
+        guard let data = body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sessionId = json["session_id"] as? String,
+              let decision = json["decision"] as? String else { return }
+        DispatchQueue.main.async { self.onPermissionResponse?(sessionId, decision) }
+    }
+
+    // MARK: WebSocket
+
+    private func handleWSUpgrade(_ request: String, on conn: NWConnection) {
+        let lines = request.split(separator: "\r\n")
+        var wsKey = ""
+        for line in lines {
+            let lower = line.lowercased()
+            if lower.hasPrefix("sec-websocket-key:") {
+                wsKey = String(line.split(separator: ":", maxSplits: 1).last ?? "").trimmingCharacters(in: .whitespaces)
+            }
+        }
+        guard !wsKey.isEmpty else { conn.cancel(); return }
+
+        let magic = "258EAFA5-E914-47DA-95CA-5AB5DF8F8E13"
+        let digest = Insecure.SHA1.hash(data: Data((wsKey + magic).utf8))
+        let acceptKey = Data(digest.withUnsafeBytes { Data($0) }).base64EncodedString()
+
+        let response = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: \(acceptKey)\r\n\r\n"
+        conn.send(content: Data(response.utf8), completion: .contentProcessed { [weak self] _ in
+            guard let self = self else { return }
+            let oid = ObjectIdentifier(conn)
+            self.wsClients[oid] = conn
+            // Start reading first, then send initial state after a brief delay
+            self.readWSFrame(on: conn)
+            let initialData = self.lastBroadcast
+            self.queue.asyncAfter(deadline: .now() + 0.1) {
+                self.sendWSText(initialData, on: conn)
+            }
+        })
+    }
+
+    private func sendWSText(_ text: String, on conn: NWConnection) {
+        let payload = Data(text.utf8)
+        var frame = Data()
+        frame.append(0x81)
+        let len = payload.count
+        if len < 126 {
+            frame.append(UInt8(len))
+        } else if len < 65536 {
+            frame.append(126)
+            frame.append(UInt8((len >> 8) & 0xFF))
+            frame.append(UInt8(len & 0xFF))
+        } else {
+            frame.append(127)
+            for i in stride(from: 56, through: 0, by: -8) {
+                frame.append(UInt8((len >> i) & 0xFF))
+            }
+        }
+        frame.append(payload)
+        conn.send(content: frame, completion: .contentProcessed { _ in })
+    }
+
+    private func readWSFrame(on conn: NWConnection) {
+        conn.receive(minimumIncompleteLength: 2, maximumLength: 65536) { [weak self] data, _, isComplete, error in
+            guard let self = self else { return }
+            if isComplete || error != nil || data == nil || data!.isEmpty {
+                self.removeClient(conn)
+                return
+            }
+            let bytes = [UInt8](data!)
+            guard bytes.count >= 2 else { self.readWSFrame(on: conn); return }
+
+            let opcode = bytes[0] & 0x0F
+            let masked = (bytes[1] & 0x80) != 0
+            var payloadLen = Int(bytes[1] & 0x7F)
+            var offset = 2
+
+            if payloadLen == 126 {
+                guard bytes.count >= 4 else { self.readWSFrame(on: conn); return }
+                payloadLen = Int(bytes[2]) << 8 | Int(bytes[3])
+                offset = 4
+            } else if payloadLen == 127 {
+                guard bytes.count >= 10 else { self.readWSFrame(on: conn); return }
+                payloadLen = 0
+                for i in 0..<8 { payloadLen = (payloadLen << 8) | Int(bytes[2 + i]) }
+                offset = 10
+            }
+
+            if masked {
+                guard bytes.count >= offset + 4 + payloadLen else { self.readWSFrame(on: conn); return }
+                let maskKey = Array(bytes[offset..<offset+4])
+                offset += 4
+                var payload = Array(bytes[offset..<offset+payloadLen])
+                for i in 0..<payload.count { payload[i] ^= maskKey[i % 4] }
+
+                switch opcode {
+                case 0x1: // text
+                    if let text = String(bytes: payload, encoding: .utf8) {
+                        self.handleWSMessage(text, from: conn)
+                    }
+                case 0x8: // close
+                    self.removeClient(conn); return
+                case 0x9: // ping → pong
+                    var pong = Data([0x8A, UInt8(payload.count)])
+                    pong.append(contentsOf: payload)
+                    conn.send(content: pong, completion: .contentProcessed { _ in })
+                default: break
+                }
+            } else if opcode == 0x8 {
+                self.removeClient(conn); return
+            }
+
+            self.readWSFrame(on: conn)
+        }
+    }
+
+    private func handleWSMessage(_ text: String, from conn: NWConnection) {
+        guard let data = text.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let type = json["type"] as? String else { return }
+        if type == "permission_response",
+           let sessionId = json["session_id"] as? String,
+           let decision = json["decision"] as? String {
+            DispatchQueue.main.async { self.onPermissionResponse?(sessionId, decision) }
+        }
+    }
+
+    private func removeClient(_ conn: NWConnection) {
+        let oid = ObjectIdentifier(conn)
+        wsClients.removeValue(forKey: oid)
+        conn.cancel()
     }
 }
 
@@ -1222,6 +1592,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
     private var isAnimating = false
     private var clickMonitor: Any?
     private let settingsController = SettingsWindowController()
+    private var dashboardServer: WebDashboardServer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if isDuplicate() {
@@ -1231,6 +1602,12 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         }
 
         try? FileManager.default.createDirectory(at: kStateDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: kWebDir, withIntermediateDirectories: true)
+
+        settingsController.onDashboardSettingsChanged = { [weak self] in
+            self?.restartDashboardServer()
+        }
+        startDashboardServerIfEnabled()
 
         setupPanel()
         pollSessions()
@@ -1419,6 +1796,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
 
         sessions = updated
         updateDisplay()
+        dashboardServer?.broadcastSessions(Array(sessions.values))
     }
 
     // MARK: - Display
@@ -1571,18 +1949,42 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Permission Response
 
     private func respondToPermission(session: CrabSession, decision: String) {
-        let responseFile = kStateDir.appendingPathComponent("\(session.id).response.json")
+        respondToPermission(sessionId: session.id, decision: decision)
+    }
+
+    private func respondToPermission(sessionId: String, decision: String) {
+        let responseFile = kStateDir.appendingPathComponent("\(sessionId).response.json")
         let response: [String: String] = ["decision": decision]
         guard let data = try? JSONSerialization.data(withJSONObject: response) else { return }
         try? data.write(to: responseFile, options: .atomic)
 
         // Immediate local feedback
-        if var s = sessions[session.id] {
+        if var s = sessions[sessionId] {
             s.permissionRequest = nil
             s.status = "working"
-            sessions[session.id] = s
+            sessions[sessionId] = s
             updateDisplay()
+            dashboardServer?.broadcastSessions(Array(sessions.values))
         }
+    }
+
+    // MARK: - Web Dashboard Server
+
+    private func startDashboardServerIfEnabled() {
+        let settings = ObserverSettings.load()
+        guard settings.webDashboardEnabled else { return }
+        let server = WebDashboardServer(port: UInt16(settings.webDashboardPort))
+        server.onPermissionResponse = { [weak self] sessionId, decision in
+            self?.respondToPermission(sessionId: sessionId, decision: decision)
+        }
+        server.start()
+        dashboardServer = server
+    }
+
+    private func restartDashboardServer() {
+        dashboardServer?.stop()
+        dashboardServer = nil
+        startDashboardServerIfEnabled()
     }
 
 }

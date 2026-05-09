@@ -8,3 +8,4 @@ This section documents all features of Claude Observer.
 - [Notifications](./notifications.md) - Sound alerts
 - [Session Lifecycle](./session-lifecycle.md) - Hook events and session state management
 - [Crab Names](./crab-names.md) - Deterministic crab name assignment
+- [Web Dashboard](./web-dashboard.md) - Phone dashboard PWA via local network
