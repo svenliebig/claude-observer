@@ -33,7 +33,7 @@ The hook translates the response into Claude Code's expected format:
 
 - **allow**: `{"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "allow"}}}`
 - **deny**: `{"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "deny"}}}`
-- **always_allow**: `{"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "allow", "permissionRule": "<ToolName>"}}}`
+- **always_allow**: `{"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "allow"}}}` — the hook stores the specific tool summary in `allowed_summaries` and auto-allows matching future requests within the session
 
 ### Timeout
 
@@ -46,7 +46,7 @@ If no response is received within 120 seconds, the hook exits with code 0 and no
 When a session has `needs_permission` status, the session row gains an additional line showing:
 
 - Tool name and a concise summary of the tool input
-- Three action buttons: Allow (green), Deny (red), Always Allow (blue)
+- Three action buttons: Allow (green), Deny (red), Allow all (blue) — the "Allow all" button label includes the specific tool summary (e.g., "Allow all npm run test") to match the CLI's "don't ask again for: ..." option
 
 Row height increases from 52px to ~85px for permission rows.
 

@@ -347,9 +347,10 @@ elif event == "PermissionRequest":
     tool_name = data.get("tool_name", "Unknown")
     tool_input = data.get("tool_input", {})
     category = tool_category(tool_name)
+    tool_summary = summarize_tool_input(tool_name, tool_input)
 
-    # Auto-allow if this category was already allowed for this session
-    if category in session.get("allowed_categories", []):
+    # Auto-allow if this specific tool use was already allowed for this session
+    if tool_summary and tool_summary in session.get("allowed_summaries", []):
         output = {
             "hookSpecificOutput": {
                 "hookEventName": "PermissionRequest",
@@ -362,8 +363,6 @@ elif event == "PermissionRequest":
     was_working = session.get("status") in ("working", None)
     session["status"] = "needs_permission"
     session["last_activity"] = timestamp
-
-    tool_summary = summarize_tool_input(tool_name, tool_input)
     perm = {
         "tool_name": tool_name,
         "tool_summary": tool_summary,
@@ -418,11 +417,11 @@ elif event == "PermissionRequest":
                 session["last_activity"] = datetime.now(timezone.utc).strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
-                if decision == "always_allow":
-                    allowed = session.get("allowed_categories", [])
-                    if category not in allowed:
-                        allowed.append(category)
-                    session["allowed_categories"] = allowed
+                if decision == "always_allow" and tool_summary:
+                    allowed = session.get("allowed_summaries", [])
+                    if tool_summary not in allowed:
+                        allowed.append(tool_summary)
+                    session["allowed_summaries"] = allowed
                 write_session(session)
 
             output = {

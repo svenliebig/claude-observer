@@ -991,9 +991,19 @@ class IslandView: NSView {
 
     // Button layout constants for permission rows
     private static let buttonH: CGFloat = 22
+    private static let allowButtonMaxChars = 30
     private static func buttonSpecs(for perm: PermissionRequestInfo) -> [(label: String, width: CGFloat)] {
-        let category = perm.toolCategory ?? perm.toolName.lowercased()
-        let allowAllLabel = "Allow all \(category)"
+        let summary = perm.toolSummary
+        let allowAllLabel: String
+        if summary.isEmpty {
+            let category = perm.toolCategory ?? perm.toolName.lowercased()
+            allowAllLabel = "Allow all \(category)"
+        } else {
+            let truncated = summary.count > allowButtonMaxChars
+                ? String(summary.prefix(allowButtonMaxChars - 1)) + "…"
+                : summary
+            allowAllLabel = "Allow all \(truncated)"
+        }
         let font = NSFont.systemFont(ofSize: 11, weight: .medium)
         let attrs: [NSAttributedString.Key: Any] = [.font: font]
         let textWidth = NSAttributedString(string: allowAllLabel, attributes: attrs).size().width
