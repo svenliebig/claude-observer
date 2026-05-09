@@ -61,3 +61,38 @@ Row height increases from 52px to ~85px for permission rows.
 | WebSearch | Query |
 | MCP tools | Tool name |
 | Other | Tool name |
+
+## Code Preview
+
+When a `Write` tool permission is requested, the widget shows a scrollable code preview area above the action buttons. This gives the user visibility into what Claude wants to write without switching to the terminal.
+
+### Layout
+
+```
+[Session header: crab icon, name, status, time]
+[Tool header: "Write: ~/path/to/file"]
+[Code preview: scrollable, up to 15 visible lines]
+[Allow] [Deny] [Always]
+```
+
+### Features
+
+- **Line numbers**: Gray gutter with right-aligned line numbers
+- **Syntax highlighting**: Basic token-based coloring by file extension (JSON, generic fallback)
+- **Scrolling**: Mouse wheel scrolls through content when it exceeds 15 lines
+- **Scroll indicator**: Thin bar on the right edge shows position in long files
+- **Content limit**: Hook sends first 100 lines of file content to keep session files small
+
+### Data Flow
+
+1. Hook receives `PermissionRequest` with `tool_input` containing `content` field
+2. Hook writes `tool_content` (first 100 lines) into `permission_request` in session JSON
+3. Swift app detects `tool_content` and renders the code preview area
+4. File extension is derived from `tool_summary` (the file path) for syntax highlighting
+
+### Syntax Highlighting
+
+| Extension | Style |
+|-----------|-------|
+| `.json` | Keys (cyan), strings (green), numbers (blue), booleans/null (purple) |
+| Other | Strings (green), numbers (blue), comments (gray) |

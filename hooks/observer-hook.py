@@ -209,10 +209,16 @@ elif event == "PermissionRequest":
     tool_name = data.get("tool_name", "Unknown")
     tool_input = data.get("tool_input", {})
     tool_summary = summarize_tool_input(tool_name, tool_input)
-    session["permission_request"] = {
+    perm = {
         "tool_name": tool_name,
         "tool_summary": tool_summary,
     }
+    if tool_name == "Write" and isinstance(tool_input, dict):
+        content = tool_input.get("content", "")
+        if content:
+            lines = content.split("\n")[:100]
+            perm["tool_content"] = "\n".join(lines)
+    session["permission_request"] = perm
     write_session(session)
     # debug_log(f"  wrote session with needs_permission")
 
@@ -226,10 +232,7 @@ elif event == "PermissionRequest":
     except FileNotFoundError:
         pass
 
-    perm_data = {
-        "tool_name": tool_name,
-        "tool_summary": tool_summary,
-    }
+    perm_data = perm
 
     start = time.time()
     while time.time() - start < 120:

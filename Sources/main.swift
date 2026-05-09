@@ -37,10 +37,12 @@ private func elapsedString(since isoString: String) -> String {
 struct PermissionRequestInfo: Codable {
     let toolName: String
     let toolSummary: String
+    let toolContent: String?
 
     enum CodingKeys: String, CodingKey {
         case toolName = "tool_name"
         case toolSummary = "tool_summary"
+        case toolContent = "tool_content"
     }
 }
 
@@ -375,6 +377,8 @@ class IslandView: NSView {
     var animFrame: Int = 0
     var isExpanded = false
     var hoveredRowIndex: Int = -1
+    var codeScrollOffset: Int = 0
+    private var codePreviewSessionId: String?
     var onToggle: (() -> Void)?
     var onSessionClick: ((CrabSession) -> Void)?
     var onPermissionResponse: ((CrabSession, String) -> Void)?
@@ -422,6 +426,35 @@ class IslandView: NSView {
         }
     }
 
+    override func scrollWheel(with event: NSEvent) {
+        guard isExpanded else { super.scrollWheel(with: event); return }
+        let point = convert(event.locationInWindow, from: nil)
+        let sorted = sortedSessions
+        var y = Self.compactHeight + 8
+        for session in sorted {
+            let rh = rowHeight(for: session)
+            if point.y >= y && point.y < y + rh {
+                if session.status == "needs_permission",
+                   let perm = session.permissionRequest,
+                   let content = perm.toolContent, !content.isEmpty {
+                    let totalLines = content.components(separatedBy: "\n").count
+                    let maxOffset = max(0, totalLines - Self.codeMaxVisibleLines)
+                    let delta = event.scrollingDeltaY
+                    if event.hasPreciseScrollingDeltas {
+                        codeScrollOffset -= Int(round(delta / Self.codeLineHeight))
+                    } else {
+                        codeScrollOffset -= Int(delta)
+                    }
+                    codeScrollOffset = max(0, min(maxOffset, codeScrollOffset))
+                    needsDisplay = true
+                    return
+                }
+            }
+            y += rh
+        }
+        super.scrollWheel(with: event)
+    }
+
     // Button layout constants for permission rows
     private static let buttonH: CGFloat = 22
     private static let buttonSpecs: [(label: String, width: CGFloat)] = [
@@ -431,6 +464,13 @@ class IslandView: NSView {
     private static let permissionLineHeight: CGFloat = 14
     private static let maxPermissionLines = 5
     private static let maxPermissionLineChars = 55
+
+    // Code preview constants
+    private static let codeLineHeight: CGFloat = 13
+    private static let codeFontSize: CGFloat = 9.5
+    private static let codeMaxVisibleLines = 15
+    private static let codePreviewPadV: CGFloat = 6
+    private static let codeLineNumWidth: CGFloat = 28
 
     static func permissionDisplayLines(for perm: PermissionRequestInfo) -> [String] {
         let fullText = "\(perm.toolName): \(perm.toolSummary)"
@@ -455,9 +495,21 @@ class IslandView: NSView {
         30 + CGFloat(lineCount) * permissionLineHeight + 9
     }
 
+    private static func codePreviewHeight(for content: String) -> CGFloat {
+        let lineCount = content.components(separatedBy: "\n").count
+        let visible = min(lineCount, codeMaxVisibleLines)
+        return CGFloat(visible) * codeLineHeight + codePreviewPadV * 2
+    }
+
+    private static func permissionButtonY(for perm: PermissionRequestInfo) -> CGFloat {
+        if let content = perm.toolContent, !content.isEmpty {
+            return 48 + codePreviewHeight(for: content) + 8
+        }
+        return permissionButtonYOffset(lineCount: permissionDisplayLines(for: perm).count)
+    }
+
     static func permissionRowHeight(for perm: PermissionRequestInfo) -> CGFloat {
-        let lineCount = permissionDisplayLines(for: perm).count
-        return permissionButtonYOffset(lineCount: lineCount) + buttonH + 10
+        return permissionButtonY(for: perm) + buttonH + 10
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -476,8 +528,7 @@ class IslandView: NSView {
                     // Check permission button clicks
                     if session.status == "needs_permission", let perm = session.permissionRequest {
                         let textX: CGFloat = 14 + 16 + 6 + 7 + 8
-                        let lineCount = Self.permissionDisplayLines(for: perm).count
-                        let btnY = y + Self.permissionButtonYOffset(lineCount: lineCount)
+                        let btnY = y + Self.permissionButtonY(for: perm)
                         if point.y >= btnY && point.y < btnY + Self.buttonH {
                             let decisions = ["allow", "deny", "always_allow"]
                             var bx = textX
@@ -757,18 +808,45 @@ class IslandView: NSView {
 
         // Permission request: tool summary + action buttons
         if session.status == "needs_permission", let perm = session.permissionRequest {
-            let lines = Self.permissionDisplayLines(for: perm)
-            let summaryAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
-                .foregroundColor: NSColor(white: 1, alpha: 0.7)
-            ]
-            for (i, line) in lines.enumerated() {
-                NSAttributedString(string: line, attributes: summaryAttrs)
-                    .draw(at: NSPoint(x: textX, y: y + 30 + CGFloat(i) * Self.permissionLineHeight))
+            if let content = perm.toolContent, !content.isEmpty {
+                // Tool header line
+                let headerAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+                    .foregroundColor: NSColor(white: 1, alpha: 0.7)
+                ]
+                let headerText = "\(perm.toolName): \(perm.toolSummary)"
+                let truncated = headerText.count > Self.maxPermissionLineChars
+                    ? String(headerText.prefix(Self.maxPermissionLineChars - 3)) + "..."
+                    : headerText
+                NSAttributedString(string: truncated, attributes: headerAttrs)
+                    .draw(at: NSPoint(x: textX, y: y + 30))
+
+                // Code preview
+                let codeY = y + 48
+                let codeH = Self.codePreviewHeight(for: content)
+                let codeRect = NSRect(x: textX, y: codeY,
+                                      width: bounds.width - textX - padding,
+                                      height: codeH)
+                if codePreviewSessionId != session.id {
+                    codeScrollOffset = 0
+                    codePreviewSessionId = session.id
+                }
+                drawCodePreview(content: content, filePath: perm.toolSummary, at: codeRect)
+            } else {
+                // Text-only permission display
+                let lines = Self.permissionDisplayLines(for: perm)
+                let summaryAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+                    .foregroundColor: NSColor(white: 1, alpha: 0.7)
+                ]
+                for (i, line) in lines.enumerated() {
+                    NSAttributedString(string: line, attributes: summaryAttrs)
+                        .draw(at: NSPoint(x: textX, y: y + 30 + CGFloat(i) * Self.permissionLineHeight))
+                }
             }
 
             // Action buttons
-            let btnY = y + Self.permissionButtonYOffset(lineCount: lines.count)
+            let btnY = y + Self.permissionButtonY(for: perm)
             let colors: [NSColor] = [.systemGreen, .systemRed, .systemBlue]
             var bx = textX
             for (bi, spec) in Self.buttonSpecs.enumerated() {
@@ -786,6 +864,143 @@ class IslandView: NSView {
             ]
             NSAttributedString(string: displayPath, attributes: pathAttrs)
                 .draw(at: NSPoint(x: textX, y: y + 30))
+        }
+    }
+
+    // MARK: - Code Preview
+
+    private static let codeBaseColor = NSColor(white: 1, alpha: 0.85)
+    private static let codeKeyColor = NSColor(red: 0.55, green: 0.82, blue: 0.96, alpha: 1)
+    private static let codeStringColor = NSColor(red: 0.81, green: 0.58, blue: 0.40, alpha: 1)
+    private static let codeNumberColor = NSColor(red: 0.71, green: 0.84, blue: 0.59, alpha: 1)
+    private static let codeBoolColor = NSColor(red: 0.78, green: 0.57, blue: 0.86, alpha: 1)
+    private static let codeCommentColor = NSColor(white: 1, alpha: 0.4)
+    private static let codeFont = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .regular)
+
+    private func drawCodePreview(content: String, filePath: String, at rect: NSRect) {
+        let bgPath = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
+        NSColor(white: 0, alpha: 0.3).setFill()
+        bgPath.fill()
+
+        let ctx = NSGraphicsContext.current!.cgContext
+        ctx.saveGState()
+        bgPath.addClip()
+
+        let lines = content.components(separatedBy: "\n")
+        let totalLines = lines.count
+        let visibleCount = min(totalLines, Self.codeMaxVisibleLines)
+        let fileExt = (filePath as NSString).pathExtension.lowercased()
+
+        let startLine = codeScrollOffset
+        let endLine = min(startLine + visibleCount, totalLines)
+
+        let lineNumColor = NSColor(white: 1, alpha: 0.3)
+
+        // Line number / code separator
+        NSColor(white: 1, alpha: 0.08).setFill()
+        NSBezierPath(rect: NSRect(
+            x: rect.origin.x + Self.codeLineNumWidth,
+            y: rect.origin.y,
+            width: 0.5,
+            height: rect.height
+        )).fill()
+
+        for i in startLine..<endLine {
+            let drawY = rect.origin.y + Self.codePreviewPadV + CGFloat(i - startLine) * Self.codeLineHeight
+
+            // Line number
+            let numStr = NSAttributedString(string: "\(i + 1)", attributes: [
+                .font: Self.codeFont, .foregroundColor: lineNumColor
+            ])
+            let numW = numStr.size().width
+            numStr.draw(at: NSPoint(x: rect.origin.x + Self.codeLineNumWidth - numW - 4, y: drawY))
+
+            // Syntax-highlighted code text
+            let highlighted = Self.highlightLine(lines[i], fileExtension: fileExt)
+            highlighted.draw(at: NSPoint(x: rect.origin.x + Self.codeLineNumWidth + 6, y: drawY))
+        }
+
+        // Scroll indicator
+        if totalLines > Self.codeMaxVisibleLines {
+            let trackH = rect.height - 4
+            let thumbH = max(16, trackH * CGFloat(visibleCount) / CGFloat(totalLines))
+            let maxScroll = max(1, CGFloat(totalLines - visibleCount))
+            let thumbY = rect.origin.y + 2 + (trackH - thumbH) * CGFloat(codeScrollOffset) / maxScroll
+            NSColor(white: 1, alpha: 0.2).setFill()
+            NSBezierPath(roundedRect: NSRect(x: rect.maxX - 5, y: thumbY, width: 3, height: thumbH),
+                         xRadius: 1.5, yRadius: 1.5).fill()
+        }
+
+        ctx.restoreGState()
+    }
+
+    private static func highlightLine(_ line: String, fileExtension: String) -> NSAttributedString {
+        let baseAttrs: [NSAttributedString.Key: Any] = [.font: codeFont, .foregroundColor: codeBaseColor]
+        let result = NSMutableAttributedString(string: line, attributes: baseAttrs)
+        let range = NSRange(location: 0, length: (line as NSString).length)
+        guard range.length > 0 else { return result }
+
+        switch fileExtension {
+        case "json":
+            applyJSONHighlighting(to: result, in: range)
+        default:
+            applyGenericHighlighting(to: result, in: range)
+        }
+        return result
+    }
+
+    private static func applyJSONHighlighting(to s: NSMutableAttributedString, in range: NSRange) {
+        let text = s.string as NSString
+
+        if let regex = try? NSRegularExpression(pattern: "\"(?:[^\"\\\\]|\\\\.)*\"") {
+            for match in regex.matches(in: s.string, range: range) {
+                let r = match.range
+                let after = r.location + r.length
+                var isKey = false
+                if after < text.length {
+                    let rest = text.substring(from: after)
+                    isKey = rest.trimmingCharacters(in: .whitespaces).hasPrefix(":")
+                }
+                s.addAttribute(.foregroundColor, value: isKey ? codeKeyColor : codeStringColor, range: r)
+            }
+        }
+
+        if let regex = try? NSRegularExpression(pattern: "\\b(?:true|false|null)\\b") {
+            for match in regex.matches(in: s.string, range: range) {
+                s.addAttribute(.foregroundColor, value: codeBoolColor, range: match.range)
+            }
+        }
+
+        if let regex = try? NSRegularExpression(pattern: "(?<=[:\\[,\\s])-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b") {
+            for match in regex.matches(in: s.string, range: range) {
+                let existing = s.attribute(.foregroundColor, at: match.range.location, effectiveRange: nil) as? NSColor
+                if existing == codeBaseColor {
+                    s.addAttribute(.foregroundColor, value: codeNumberColor, range: match.range)
+                }
+            }
+        }
+    }
+
+    private static func applyGenericHighlighting(to s: NSMutableAttributedString, in range: NSRange) {
+        if let regex = try? NSRegularExpression(pattern: "(?://|#).*$", options: .anchorsMatchLines) {
+            for match in regex.matches(in: s.string, range: range) {
+                s.addAttribute(.foregroundColor, value: codeCommentColor, range: match.range)
+            }
+        }
+
+        if let regex = try? NSRegularExpression(pattern: "\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'") {
+            for match in regex.matches(in: s.string, range: range) {
+                s.addAttribute(.foregroundColor, value: codeStringColor, range: match.range)
+            }
+        }
+
+        if let regex = try? NSRegularExpression(pattern: "\\b-?\\d+(?:\\.\\d+)?\\b") {
+            for match in regex.matches(in: s.string, range: range) {
+                let existing = s.attribute(.foregroundColor, at: match.range.location, effectiveRange: nil) as? NSColor
+                if existing == codeBaseColor {
+                    s.addAttribute(.foregroundColor, value: codeNumberColor, range: match.range)
+                }
+            }
         }
     }
 
