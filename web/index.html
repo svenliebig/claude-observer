@@ -110,6 +110,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: visible;
 }
 
 /* ── Session Card ──────────────────────────────────────── */
@@ -226,6 +227,44 @@ body {
   word-break: break-all;
   margin-bottom: 12px;
   -webkit-overflow-scrolling: touch;
+}
+
+/* ── Expanded card ─────────────────────────────────────── */
+.card.expanded {
+  width: 50vw;
+  min-width: 100%;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.card.expanded .permission-content {
+  max-height: 1440px; /* ~80 lines at 12px * 1.5 line-height */
+}
+
+.expand-toggle {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  padding: 5px 12px;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: background 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.expand-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.expand-toggle:active {
+  transform: scale(0.97);
 }
 
 .permission-actions {
@@ -364,6 +403,7 @@ body {
   let ws = null;
   let sessions = [];
   let respondingSessions = new Set();
+  let expandedSessions = new Set();
   let previousPermissionSessions = new Set();
   let reconnectDelay = 1000;
   let reconnectTimer = null;
@@ -441,8 +481,9 @@ body {
   function buildCard(session) {
     const isPermission = session.status === 'needs_permission' && session.permission_request;
     const isResponding = respondingSessions.has(session.id);
+    const isExpanded = expandedSessions.has(session.id);
 
-    let html = '<div class="card' + (isPermission ? ' permission' : '') + '" data-id="' + esc(session.id) + '">';
+    let html = '<div class="card' + (isPermission ? ' permission' : '') + (isExpanded ? ' expanded' : '') + '" data-id="' + esc(session.id) + '">';
 
     // Header row
     html += '<div class="card-header">';
@@ -469,7 +510,18 @@ body {
         html += '<div class="permission-summary">' + esc(pr.tool_summary) + '</div>';
       }
       if (pr.tool_content) {
-        html += '<div class="permission-content">' + truncateContent(pr.tool_content, 10) + '</div>';
+        var contentLines = pr.tool_content.split('\n').length;
+        var isTruncatable = contentLines > 10 || pr.tool_content.length > 500;
+        if (isExpanded) {
+          html += '<div class="permission-content">' + truncateContent(pr.tool_content, 80) + '</div>';
+        } else {
+          html += '<div class="permission-content">' + truncateContent(pr.tool_content, 10) + '</div>';
+        }
+        if (isTruncatable) {
+          html += '<button class="expand-toggle" onclick="toggleExpand(\'' + esc(session.id) + '\')">'
+            + (isExpanded ? 'Show less' : 'Show full content (' + contentLines + ' lines)')
+            + '</button>';
+        }
       }
       if (isResponding) {
         html += '<div class="responding-label">Responding...</div>';
@@ -583,13 +635,28 @@ body {
       alertPermission();
     }
 
-    // Clear responding state for sessions no longer needing permission
+    // Clear responding/expanded state for sessions no longer needing permission
     respondingSessions.forEach(function (id) {
       if (!currentPermissionIds.has(id)) {
         respondingSessions.delete(id);
       }
     });
+    expandedSessions.forEach(function (id) {
+      if (!currentPermissionIds.has(id)) {
+        expandedSessions.delete(id);
+      }
+    });
   }
+
+  // ── Toggle expanded content ──────────────────────────
+  window.toggleExpand = function (sessionId) {
+    if (expandedSessions.has(sessionId)) {
+      expandedSessions.delete(sessionId);
+    } else {
+      expandedSessions.add(sessionId);
+    }
+    render();
+  };
 
   // ── Handle permission button click ────────────────────
   window.handlePermission = function (sessionId, decision) {

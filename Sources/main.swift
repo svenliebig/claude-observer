@@ -913,9 +913,11 @@ class IslandView: NSView {
     var hoveredRowIndex: Int = -1
     var codeScrollOffset: Int = 0
     private var codePreviewSessionId: String?
+    var expandedContentSessionId: String?
     var onToggle: (() -> Void)?
     var onSessionClick: ((CrabSession) -> Void)?
     var onPermissionResponse: ((CrabSession, String) -> Void)?
+    var onContentExpandToggle: (() -> Void)?
 
     static let compactHeight: CGFloat = 36
     static let sessionRowHeight: CGFloat = 52
@@ -972,7 +974,8 @@ class IslandView: NSView {
                    let perm = session.permissionRequest,
                    let content = perm.toolContent, !content.isEmpty {
                     let totalLines = content.components(separatedBy: "\n").count
-                    let maxOffset = max(0, totalLines - Self.codeMaxVisibleLines)
+                    let maxVisible = expandedContentSessionId == session.id ? Self.codeMaxVisibleLinesExpanded : Self.codeMaxVisibleLines
+                    let maxOffset = max(0, totalLines - maxVisible)
                     let delta = event.scrollingDeltaY
                     if event.hasPreciseScrollingDeltas {
                         codeScrollOffset -= Int(round(delta / Self.codeLineHeight))
@@ -1019,8 +1022,10 @@ class IslandView: NSView {
     private static let codeLineHeight: CGFloat = 13
     private static let codeFontSize: CGFloat = 9.5
     private static let codeMaxVisibleLines = 15
+    private static let codeMaxVisibleLinesExpanded = 80
     private static let codePreviewPadV: CGFloat = 6
     private static let codeLineNumWidth: CGFloat = 28
+    private static let expandToggleHeight: CGFloat = 24
 
     static func permissionDisplayLines(for perm: PermissionRequestInfo) -> [String] {
         let fullText = "\(perm.toolName): \(perm.toolSummary)"
@@ -1045,21 +1050,30 @@ class IslandView: NSView {
         30 + CGFloat(lineCount) * permissionLineHeight + 9
     }
 
-    private static func codePreviewHeight(for content: String) -> CGFloat {
+    private static func codePreviewHeight(for content: String, expanded: Bool = false) -> CGFloat {
         let lineCount = content.components(separatedBy: "\n").count
-        let visible = min(lineCount, codeMaxVisibleLines)
+        let maxLines = expanded ? codeMaxVisibleLinesExpanded : codeMaxVisibleLines
+        let visible = min(lineCount, maxLines)
         return CGFloat(visible) * codeLineHeight + codePreviewPadV * 2
     }
 
-    private static func permissionButtonY(for perm: PermissionRequestInfo) -> CGFloat {
+    private static func contentIsTruncatable(_ content: String) -> Bool {
+        return content.components(separatedBy: "\n").count > codeMaxVisibleLines
+    }
+
+    private static func permissionButtonY(for perm: PermissionRequestInfo, expanded: Bool = false) -> CGFloat {
         if let content = perm.toolContent, !content.isEmpty {
-            return 48 + codePreviewHeight(for: content) + 8
+            var h = 48 + codePreviewHeight(for: content, expanded: expanded) + 8
+            if contentIsTruncatable(content) {
+                h += expandToggleHeight + 4
+            }
+            return h
         }
         return permissionButtonYOffset(lineCount: permissionDisplayLines(for: perm).count)
     }
 
-    static func permissionRowHeight(for perm: PermissionRequestInfo) -> CGFloat {
-        return permissionButtonY(for: perm) + buttonH + 10
+    static func permissionRowHeight(for perm: PermissionRequestInfo, expanded: Bool = false) -> CGFloat {
+        return permissionButtonY(for: perm, expanded: expanded) + buttonH + 10
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -1078,7 +1092,24 @@ class IslandView: NSView {
                     // Check permission button clicks
                     if session.status == "needs_permission", let perm = session.permissionRequest {
                         let textX: CGFloat = 14 + 16 + 6 + 7 + 8
-                        let btnY = y + Self.permissionButtonY(for: perm)
+                        let isContentExpanded = expandedContentSessionId == session.id
+                        let btnY = y + Self.permissionButtonY(for: perm, expanded: isContentExpanded)
+
+                        // Check expand toggle click
+                        if let content = perm.toolContent, !content.isEmpty, Self.contentIsTruncatable(content) {
+                            let toggleY = y + 48 + Self.codePreviewHeight(for: content, expanded: isContentExpanded) + 4
+                            if point.y >= toggleY && point.y < toggleY + Self.expandToggleHeight {
+                                if expandedContentSessionId == session.id {
+                                    expandedContentSessionId = nil
+                                } else {
+                                    expandedContentSessionId = session.id
+                                    codeScrollOffset = 0
+                                }
+                                onContentExpandToggle?()
+                                return
+                            }
+                        }
+
                         if point.y >= btnY && point.y < btnY + Self.buttonH {
                             let decisions = ["allow", "deny", "always_allow"]
                             var bx = textX
@@ -1127,7 +1158,8 @@ class IslandView: NSView {
 
     func rowHeight(for session: CrabSession) -> CGFloat {
         if session.status == "needs_permission", let perm = session.permissionRequest {
-            return Self.permissionRowHeight(for: perm)
+            let isContentExpanded = expandedContentSessionId == session.id
+            return Self.permissionRowHeight(for: perm, expanded: isContentExpanded)
         }
         return Self.sessionRowHeight
     }
@@ -1373,6 +1405,7 @@ class IslandView: NSView {
         // Permission request: tool summary + action buttons
         if session.status == "needs_permission", let perm = session.permissionRequest {
             if let content = perm.toolContent, !content.isEmpty {
+                let isContentExpanded = expandedContentSessionId == session.id
                 // Tool header line
                 let headerAttrs: [NSAttributedString.Key: Any] = [
                     .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
@@ -1387,7 +1420,7 @@ class IslandView: NSView {
 
                 // Code preview
                 let codeY = y + 48
-                let codeH = Self.codePreviewHeight(for: content)
+                let codeH = Self.codePreviewHeight(for: content, expanded: isContentExpanded)
                 let codeRect = NSRect(x: textX, y: codeY,
                                       width: bounds.width - textX - padding,
                                       height: codeH)
@@ -1395,7 +1428,28 @@ class IslandView: NSView {
                     codeScrollOffset = 0
                     codePreviewSessionId = session.id
                 }
-                drawCodePreview(content: content, filePath: perm.toolSummary, at: codeRect)
+                drawCodePreview(content: content, filePath: perm.toolSummary, at: codeRect, expanded: isContentExpanded)
+
+                // Expand toggle button
+                if Self.contentIsTruncatable(content) {
+                    let totalLines = content.components(separatedBy: "\n").count
+                    let toggleY = codeY + codeH + 4
+                    let toggleLabel = isContentExpanded
+                        ? "Show less"
+                        : "Show full content (\(totalLines) lines)"
+                    let toggleAttrs: [NSAttributedString.Key: Any] = [
+                        .font: NSFont.systemFont(ofSize: 10, weight: .medium),
+                        .foregroundColor: NSColor(white: 1, alpha: 0.5)
+                    ]
+                    let toggleStr = NSAttributedString(string: toggleLabel, attributes: toggleAttrs)
+                    let toggleRect = NSRect(x: textX, y: toggleY,
+                                            width: toggleStr.size().width + 16,
+                                            height: Self.expandToggleHeight)
+                    let toggleBg = NSBezierPath(roundedRect: toggleRect, xRadius: 6, yRadius: 6)
+                    NSColor(white: 1, alpha: 0.06).setFill()
+                    toggleBg.fill()
+                    toggleStr.draw(at: NSPoint(x: textX + 8, y: toggleY + 5))
+                }
             } else {
                 // Text-only permission display
                 let lines = Self.permissionDisplayLines(for: perm)
@@ -1410,7 +1464,8 @@ class IslandView: NSView {
             }
 
             // Action buttons
-            let btnY = y + Self.permissionButtonY(for: perm)
+            let isContentExp = expandedContentSessionId == session.id
+            let btnY = y + Self.permissionButtonY(for: perm, expanded: isContentExp)
             let colors: [NSColor] = [.systemGreen, .systemRed, .systemBlue]
             var bx = textX
             for (bi, spec) in Self.buttonSpecs(for: perm).enumerated() {
@@ -1441,7 +1496,7 @@ class IslandView: NSView {
     private static let codeCommentColor = NSColor(white: 1, alpha: 0.4)
     private static let codeFont = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .regular)
 
-    private func drawCodePreview(content: String, filePath: String, at rect: NSRect) {
+    private func drawCodePreview(content: String, filePath: String, at rect: NSRect, expanded: Bool = false) {
         let bgPath = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
         NSColor(white: 0, alpha: 0.3).setFill()
         bgPath.fill()
@@ -1452,7 +1507,8 @@ class IslandView: NSView {
 
         let lines = content.components(separatedBy: "\n")
         let totalLines = lines.count
-        let visibleCount = min(totalLines, Self.codeMaxVisibleLines)
+        let maxVisible = expanded ? Self.codeMaxVisibleLinesExpanded : Self.codeMaxVisibleLines
+        let visibleCount = min(totalLines, maxVisible)
         let fileExt = (filePath as NSString).pathExtension.lowercased()
 
         let startLine = codeScrollOffset
@@ -1485,7 +1541,7 @@ class IslandView: NSView {
         }
 
         // Scroll indicator
-        if totalLines > Self.codeMaxVisibleLines {
+        if totalLines > maxVisible {
             let trackH = rect.height - 4
             let thumbH = max(16, trackH * CGFloat(visibleCount) / CGFloat(totalLines))
             let maxScroll = max(1, CGFloat(totalLines - visibleCount))
@@ -1682,6 +1738,9 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         islandView.onPermissionResponse = { [weak self] session, decision in
             self?.respondToPermission(session: session, decision: decision)
         }
+        islandView.onContentExpandToggle = { [weak self] in
+            self?.resizeToFitContent()
+        }
         islandView.onOpenSettings = { [weak self] in
             self?.settingsController.showWindow()
         }
@@ -1711,10 +1770,12 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         guard let screen = NSScreen.main else {
             return NSRect(x: 100, y: 100, width: IslandView.expandedWidth, height: 200)
         }
-        let w = IslandView.expandedWidth
+        let hasExpandedContent = islandView.expandedContentSessionId != nil
+        let w = hasExpandedContent ? max(IslandView.expandedWidth, screen.frame.width * 0.5) : IslandView.expandedWidth
         let totalRowH = sessions.values.reduce(CGFloat(0)) { sum, session in
             if session.status == "needs_permission", let perm = session.permissionRequest {
-                return sum + IslandView.permissionRowHeight(for: perm)
+                let isContentExpanded = islandView.expandedContentSessionId == session.id
+                return sum + IslandView.permissionRowHeight(for: perm, expanded: isContentExpanded)
             }
             return sum + IslandView.sessionRowHeight
         }
@@ -1761,6 +1822,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         isExpanded = false
         islandView.isExpanded = false
         islandView.hoveredRowIndex = -1
+        islandView.expandedContentSessionId = nil
         islandView.needsDisplay = true
 
         let newFrame = compactFrame()
@@ -1780,6 +1842,17 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
             NSEvent.removeMonitor(monitor)
             clickMonitor = nil
         }
+    }
+
+    private func resizeToFitContent() {
+        guard isExpanded else { return }
+        islandView.needsDisplay = true
+        let newFrame = expandedFrame()
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.2
+            ctx.allowsImplicitAnimation = true
+            self.panel.animator().setFrame(newFrame, display: true)
+        })
     }
 
     // MARK: - Session Polling
@@ -1976,6 +2049,9 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
             s.permissionRequest = nil
             s.status = "working"
             sessions[sessionId] = s
+            if islandView.expandedContentSessionId == sessionId {
+                islandView.expandedContentSessionId = nil
+            }
             updateDisplay()
             dashboardServer?.broadcastSessions(Array(sessions.values))
         }
