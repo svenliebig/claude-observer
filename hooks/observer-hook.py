@@ -9,7 +9,23 @@ import time
 from datetime import datetime, timezone
 
 STATE_DIR = os.path.expanduser("~/.claude-observer/sessions")
+SETTINGS_FILE = os.path.expanduser("~/.claude-observer/settings.json")
 os.makedirs(STATE_DIR, exist_ok=True)
+
+
+def load_settings():
+    try:
+        with open(SETTINGS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def play_sound(setting_key, default_sound):
+    settings = load_settings()
+    sound = settings.get(setting_key, default_sound)
+    if sound:
+        os.system(f"afplay /System/Library/Sounds/{sound}.aiff &")
 
 CRAB_NAMES = [
     "Pinchy", "Snippy", "Clawdia", "Scuttles", "Sheldon",
@@ -174,7 +190,7 @@ elif event == "StopFailure":
     session["status"] = "error"
     session["last_activity"] = timestamp
     write_session(session)
-    os.system("afplay /System/Library/Sounds/Basso.aiff &")
+    play_sound("error_sound", "Basso")
 
 elif event == "PostToolUse":
     session = ensure_session()
@@ -197,7 +213,7 @@ elif event == "Notification":
     session["last_activity"] = timestamp
     write_session(session)
     if was_working:
-        os.system("afplay /System/Library/Sounds/Ping.aiff &")
+        play_sound("permission_sound", "Ping")
 
 elif event == "PermissionRequest":
     # debug_log(f"PermissionRequest: session={session_id} tool={data.get('tool_name', '?')}")
@@ -223,7 +239,7 @@ elif event == "PermissionRequest":
     # debug_log(f"  wrote session with needs_permission")
 
     if was_working:
-        os.system("afplay /System/Library/Sounds/Ping.aiff &")
+        play_sound("permission_sound", "Ping")
 
     # Wait for response from the observer widget
     response_file = os.path.join(STATE_DIR, f"{session_id}.response.json")

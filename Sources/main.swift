@@ -5,6 +5,19 @@ import Cocoa
 let kStateDir = FileManager.default.homeDirectoryForCurrentUser
     .appendingPathComponent(".claude-observer/sessions")
 
+let kSettingsFile = FileManager.default.homeDirectoryForCurrentUser
+    .appendingPathComponent(".claude-observer/settings.json")
+
+let kSystemSounds: [String] = {
+    let soundsDir = "/System/Library/Sounds"
+    let fm = FileManager.default
+    guard let files = try? fm.contentsOfDirectory(atPath: soundsDir) else { return [] }
+    return files
+        .filter { $0.hasSuffix(".aiff") }
+        .map { ($0 as NSString).deletingPathExtension }
+        .sorted()
+}()
+
 let kCrabNames = [
     "Pinchy", "Snippy", "Clawdia", "Scuttles", "Sheldon",
     "Bubbles", "Sandy", "Hermie", "Captain Claw", "Rusty",
@@ -30,6 +43,152 @@ private func elapsedString(since isoString: String) -> String {
     if elapsed < 60 { return "\(Int(elapsed))s" }
     if elapsed < 3600 { return "\(Int(elapsed / 60))m" }
     return "\(Int(elapsed / 3600))h"
+}
+
+// MARK: - Settings
+
+struct ObserverSettings: Codable {
+    var permissionSound: String
+    var errorSound: String
+
+    enum CodingKeys: String, CodingKey {
+        case permissionSound = "permission_sound"
+        case errorSound = "error_sound"
+    }
+
+    static let defaults = ObserverSettings(permissionSound: "Ping", errorSound: "Basso")
+
+    static func load() -> ObserverSettings {
+        guard let data = try? Data(contentsOf: kSettingsFile),
+              let settings = try? JSONDecoder().decode(ObserverSettings.self, from: data)
+        else { return .defaults }
+        return settings
+    }
+
+    func save() {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(self) else { return }
+        try? data.write(to: kSettingsFile, options: .atomic)
+    }
+}
+
+// MARK: - Settings Window
+
+class SettingsWindowController: NSObject, NSWindowDelegate {
+    private var window: NSWindow?
+    private var settings: ObserverSettings
+    private var permissionPopUp: NSPopUpButton!
+    private var errorPopUp: NSPopUpButton!
+
+    override init() {
+        self.settings = ObserverSettings.load()
+        super.init()
+    }
+
+    func showWindow() {
+        if let w = window {
+            w.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
+        settings = ObserverSettings.load()
+
+        let w = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 150),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        w.title = "Claude Observer Settings"
+        w.center()
+        w.delegate = self
+        w.isReleasedWhenClosed = false
+
+        let contentView = NSView(frame: w.contentView!.bounds)
+        contentView.autoresizingMask = [.width, .height]
+
+        let soundOptions = ["None (disabled)"] + kSystemSounds
+
+        // Permission sound row
+        let permLabel = NSTextField(labelWithString: "Permission sound:")
+        permLabel.frame = NSRect(x: 20, y: 100, width: 140, height: 20)
+        permLabel.alignment = .right
+        contentView.addSubview(permLabel)
+
+        permissionPopUp = NSPopUpButton(frame: NSRect(x: 170, y: 97, width: 180, height: 26))
+        permissionPopUp.addItems(withTitles: soundOptions)
+        selectSound(settings.permissionSound, in: permissionPopUp)
+        permissionPopUp.target = self
+        permissionPopUp.action = #selector(permissionSoundChanged(_:))
+        contentView.addSubview(permissionPopUp)
+
+        // Error sound row
+        let errorLabel = NSTextField(labelWithString: "Error sound:")
+        errorLabel.frame = NSRect(x: 20, y: 60, width: 140, height: 20)
+        errorLabel.alignment = .right
+        contentView.addSubview(errorLabel)
+
+        errorPopUp = NSPopUpButton(frame: NSRect(x: 170, y: 57, width: 180, height: 26))
+        errorPopUp.addItems(withTitles: soundOptions)
+        selectSound(settings.errorSound, in: errorPopUp)
+        errorPopUp.target = self
+        errorPopUp.action = #selector(errorSoundChanged(_:))
+        contentView.addSubview(errorPopUp)
+
+        // Preview button
+        let previewBtn = NSButton(title: "Preview", target: self, action: #selector(previewSound(_:)))
+        previewBtn.bezelStyle = .rounded
+        previewBtn.frame = NSRect(x: 280, y: 18, width: 80, height: 28)
+        contentView.addSubview(previewBtn)
+
+        w.contentView = contentView
+        w.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        self.window = w
+    }
+
+    private func selectSound(_ name: String, in popUp: NSPopUpButton) {
+        if name.isEmpty {
+            popUp.selectItem(at: 0) // "None (disabled)"
+        } else if let idx = kSystemSounds.firstIndex(of: name) {
+            popUp.selectItem(at: idx + 1) // offset by 1 for "None" entry
+        } else {
+            popUp.selectItem(at: 0)
+        }
+    }
+
+    private func soundName(from popUp: NSPopUpButton) -> String {
+        let idx = popUp.indexOfSelectedItem
+        return idx == 0 ? "" : kSystemSounds[idx - 1]
+    }
+
+    @objc private func permissionSoundChanged(_ sender: NSPopUpButton) {
+        settings.permissionSound = soundName(from: sender)
+        settings.save()
+    }
+
+    @objc private func errorSoundChanged(_ sender: NSPopUpButton) {
+        settings.errorSound = soundName(from: sender)
+        settings.save()
+    }
+
+    @objc private func previewSound(_ sender: NSButton) {
+        // Preview whichever popup was last changed, or permission sound by default
+        let sound = soundName(from: permissionPopUp)
+        guard !sound.isEmpty else { return }
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/afplay")
+        task.arguments = ["/System/Library/Sounds/\(sound).aiff"]
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        try? task.run()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        window = nil
+    }
 }
 
 // MARK: - Session Model
@@ -551,14 +710,28 @@ class IslandView: NSView {
         }
     }
 
+    var onOpenSettings: (() -> Void)?
+
     override func rightMouseDown(with event: NSEvent) {
         let menu = NSMenu()
+        let settingsItem = NSMenuItem(
+            title: "Settings...",
+            action: #selector(settingsMenuClicked(_:)),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(
             title: "Quit Claude Observer",
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         ))
         NSMenu.popUpContextMenu(menu, with: event, for: self)
+    }
+
+    @objc private func settingsMenuClicked(_ sender: NSMenuItem) {
+        onOpenSettings?()
     }
 
     func rowHeight(for session: CrabSession) -> CGFloat {
@@ -1040,6 +1213,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
     private var isExpanded = false
     private var isAnimating = false
     private var clickMonitor: Any?
+    private let settingsController = SettingsWindowController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if isDuplicate() {
@@ -1109,6 +1283,9 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         }
         islandView.onPermissionResponse = { [weak self] session, decision in
             self?.respondToPermission(session: session, decision: decision)
+        }
+        islandView.onOpenSettings = { [weak self] in
+            self?.settingsController.showWindow()
         }
 
         // View hierarchy
