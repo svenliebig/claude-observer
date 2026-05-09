@@ -4,12 +4,13 @@
 import json
 import os
 import sys
-import hashlib
+import random
 import time
 from datetime import datetime, timezone
 
 STATE_DIR = os.path.expanduser("~/.claude-observer/sessions")
 SETTINGS_FILE = os.path.expanduser("~/.claude-observer/settings.json")
+PERSONALITIES_FILE = os.path.expanduser("~/.claude-observer/personalities.json")
 os.makedirs(STATE_DIR, exist_ok=True)
 
 
@@ -34,8 +35,98 @@ CRAB_NAMES = [
     "Crusty", "Wobbles", "Chomper", "Skipper", "Pebbles",
     "Biscuit", "Snapper", "Gizmo", "Pepper", "Ziggy",
     "Pickle", "Noodle", "Sprocket", "Tango", "Mango",
-    "Fiddler", "Coconut", "Cheddar", "Waffles", "Bongo"
+    "Fiddler", "Coconut", "Cheddar", "Waffles", "Bongo",
+    "Clementine", "Puddles", "Driftwood", "Starfish", "Jellybean",
+    "Anchovy", "Ripple", "Barnaby", "Tempest", "Breeze",
+    "Crumble", "Scooter", "Peanut", "Sushi", "Pretzel",
 ]
+
+
+def normalize_path(path):
+    home = os.path.expanduser("~")
+    if path.startswith(home):
+        return "~" + path[len(home):]
+    return path
+
+
+def load_personalities():
+    try:
+        with open(PERSONALITIES_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_personalities(data):
+    tmp = PERSONALITIES_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2)
+    os.replace(tmp, PERSONALITIES_FILE)
+
+
+def get_active_names_for_cwd(normalized_cwd, exclude_session_id=None):
+    """Get names currently used by active sessions in this cwd."""
+    names = []
+    try:
+        for fname in os.listdir(STATE_DIR):
+            if not fname.endswith(".json") or ".response." in fname:
+                continue
+            fpath = os.path.join(STATE_DIR, fname)
+            try:
+                with open(fpath) as f:
+                    s = json.load(f)
+                sid = s.get("id", "")
+                if exclude_session_id and sid == exclude_session_id:
+                    continue
+                scwd = normalize_path(s.get("cwd", ""))
+                if scwd == normalized_cwd:
+                    names.append(s.get("name", ""))
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return names
+
+
+def assign_personality(cwd_raw, session_id):
+    """Assign a persistent personality name for a session in this directory."""
+    normalized = normalize_path(cwd_raw)
+    personalities = load_personalities()
+
+    active_names = get_active_names_for_cwd(normalized, exclude_session_id=session_id)
+    repo_names = personalities.get(normalized, [])
+
+    # Find the first name in the assigned list not currently in use
+    for name in repo_names:
+        if name not in active_names:
+            return name
+
+    # All assigned names are in use (or none assigned yet) - get a new name
+    all_assigned = set()
+    for names_list in personalities.values():
+        all_assigned.update(names_list)
+
+    new_name = None
+    for name in CRAB_NAMES:
+        if name not in all_assigned:
+            new_name = name
+            break
+
+    if new_name is None:
+        # All names exhausted - steal from a random repo
+        other_repos = [k for k, v in personalities.items() if k != normalized and len(v) > 0]
+        if other_repos:
+            victim_repo = random.choice(other_repos)
+            new_name = personalities[victim_repo].pop()
+            if not personalities[victim_repo]:
+                del personalities[victim_repo]
+        else:
+            new_name = random.choice(CRAB_NAMES)
+
+    repo_names.append(new_name)
+    personalities[normalized] = repo_names
+    save_personalities(personalities)
+    return new_name
 
 try:
     data = json.load(sys.stdin)
@@ -85,11 +176,6 @@ terminal_app = detect_terminal_app()
 session_file = os.path.join(STATE_DIR, f"{session_id}.json")
 cancel_file = os.path.join(STATE_DIR, f"{session_id}.permission_cancel")
 timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-# Deterministic crab name from session ID
-name_idx = int(hashlib.md5(session_id.encode()).hexdigest(), 16) % len(CRAB_NAMES)
-crab_name = CRAB_NAMES[name_idx]
-
 
 def read_session():
     try:
@@ -149,6 +235,7 @@ def summarize_tool_input(tool_name, tool_input):
 def ensure_session():
     session = read_session()
     if session is None:
+        crab_name = assign_personality(cwd, session_id)
         session = {
             "id": session_id,
             "name": crab_name,
@@ -182,6 +269,7 @@ def signal_permission_handled(session):
 
 
 if event == "SessionStart":
+    crab_name = assign_personality(cwd, session_id)
     session = {
         "id": session_id,
         "name": crab_name,
