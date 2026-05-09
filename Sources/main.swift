@@ -30,7 +30,10 @@ let kCrabNames = [
     "Crusty", "Wobbles", "Chomper", "Skipper", "Pebbles",
     "Biscuit", "Snapper", "Gizmo", "Pepper", "Ziggy",
     "Pickle", "Noodle", "Sprocket", "Tango", "Mango",
-    "Fiddler", "Coconut", "Cheddar", "Waffles", "Bongo"
+    "Fiddler", "Coconut", "Cheddar", "Waffles", "Bongo",
+    "Clementine", "Puddles", "Driftwood", "Starfish", "Jellybean",
+    "Anchovy", "Ripple", "Barnaby", "Tempest", "Breeze",
+    "Crumble", "Scooter", "Peanut", "Sushi", "Pretzel",
 ]
 
 private func abbreviatePath(_ path: String) -> String {
