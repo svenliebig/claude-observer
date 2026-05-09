@@ -83,6 +83,7 @@ def detect_terminal_app():
 terminal_app = detect_terminal_app()
 
 session_file = os.path.join(STATE_DIR, f"{session_id}.json")
+cancel_file = os.path.join(STATE_DIR, f"{session_id}.permission_cancel")
 timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 # Deterministic crab name from session ID
@@ -149,6 +150,20 @@ def ensure_session():
     return session
 
 
+def signal_permission_handled(session):
+    """If a permission request is pending, signal the polling loop to exit."""
+    if session.get("status") != "needs_permission":
+        return
+    try:
+        tmp = cancel_file + ".tmp"
+        with open(tmp, "w") as f:
+            f.write("1")
+        os.replace(tmp, cancel_file)
+    except Exception:
+        pass
+    session.pop("permission_request", None)
+
+
 if event == "SessionStart":
     session = {
         "id": session_id,
@@ -165,6 +180,7 @@ if event == "SessionStart":
 
 elif event == "UserPromptSubmit":
     session = ensure_session()
+    signal_permission_handled(session)
     session["status"] = "working"
     session["last_activity"] = timestamp
     if cwd:
@@ -173,6 +189,7 @@ elif event == "UserPromptSubmit":
 
 elif event == "PreToolUse":
     session = ensure_session()
+    signal_permission_handled(session)
     session["status"] = "working"
     session["last_activity"] = timestamp
     if cwd:
@@ -181,12 +198,14 @@ elif event == "PreToolUse":
 
 elif event == "Stop":
     session = ensure_session()
+    signal_permission_handled(session)
     session["status"] = "idle"
     session["last_activity"] = timestamp
     write_session(session)
 
 elif event == "StopFailure":
     session = ensure_session()
+    signal_permission_handled(session)
     session["status"] = "error"
     session["last_activity"] = timestamp
     write_session(session)
@@ -194,6 +213,7 @@ elif event == "StopFailure":
 
 elif event == "PostToolUse":
     session = ensure_session()
+    signal_permission_handled(session)
     session["status"] = "working"
     session["last_activity"] = timestamp
     if cwd:
@@ -247,6 +267,10 @@ elif event == "PermissionRequest":
         os.remove(response_file)
     except FileNotFoundError:
         pass
+    try:
+        os.remove(cancel_file)
+    except FileNotFoundError:
+        pass
 
     perm_data = perm
 
@@ -288,6 +312,23 @@ elif event == "PermissionRequest":
             json.dump(output, sys.stdout)
             sys.exit(0)
 
+        # Check if permission was handled in the terminal
+        if os.path.exists(cancel_file):
+            try:
+                os.remove(cancel_file)
+            except Exception:
+                pass
+            session = read_session()
+            if session:
+                session.pop("permission_request", None)
+                if session.get("status") == "needs_permission":
+                    session["status"] = "working"
+                session["last_activity"] = datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+                write_session(session)
+            sys.exit(0)
+
         # Re-assert permission status if overwritten by a concurrent event
         current = read_session()
         if current and (
@@ -309,6 +350,7 @@ elif event == "PermissionRequest":
 
 elif event == "SubagentStart":
     session = ensure_session()
+    signal_permission_handled(session)
     session["status"] = "working"
     session["last_activity"] = timestamp
     if cwd:
@@ -317,6 +359,7 @@ elif event == "SubagentStart":
 
 elif event == "SubagentStop":
     session = ensure_session()
+    signal_permission_handled(session)
     session["last_activity"] = timestamp
     write_session(session)
 
@@ -326,11 +369,10 @@ elif event == "PreCompact":
     write_session(session)
 
 elif event == "SessionEnd":
-    try:
-        os.remove(session_file)
-    except FileNotFoundError:
-        pass
-    try:
-        os.remove(os.path.join(STATE_DIR, f"{session_id}.response.json"))
-    except FileNotFoundError:
-        pass
+    for path in [session_file,
+                 os.path.join(STATE_DIR, f"{session_id}.response.json"),
+                 cancel_file]:
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
