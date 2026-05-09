@@ -381,7 +381,6 @@ class IslandView: NSView {
 
     static let compactHeight: CGFloat = 36
     static let sessionRowHeight: CGFloat = 52
-    static let permissionRowHeight: CGFloat = 85
     static let expandedWidth: CGFloat = 440
     static let compactWidthWithSessions: CGFloat = 270
     static let compactWidthEmpty: CGFloat = 160
@@ -424,12 +423,42 @@ class IslandView: NSView {
     }
 
     // Button layout constants for permission rows
-    private static let buttonY_offset: CGFloat = 53
     private static let buttonH: CGFloat = 22
     private static let buttonSpecs: [(label: String, width: CGFloat)] = [
         ("Allow", 55), ("Deny", 48), ("Always", 60)
     ]
     private static let buttonGap: CGFloat = 8
+    private static let permissionLineHeight: CGFloat = 14
+    private static let maxPermissionLines = 5
+    private static let maxPermissionLineChars = 55
+
+    static func permissionDisplayLines(for perm: PermissionRequestInfo) -> [String] {
+        let fullText = "\(perm.toolName): \(perm.toolSummary)"
+        let allLines = fullText.components(separatedBy: .newlines)
+        let limited = Array(allLines.prefix(maxPermissionLines))
+        var result = limited.map { line in
+            if line.count > maxPermissionLineChars {
+                return String(line.prefix(maxPermissionLineChars - 3)) + "..."
+            }
+            return line
+        }
+        if allLines.count > maxPermissionLines {
+            let last = result[result.count - 1]
+            if !last.hasSuffix("...") {
+                result[result.count - 1] = last + "..."
+            }
+        }
+        return result
+    }
+
+    private static func permissionButtonYOffset(lineCount: Int) -> CGFloat {
+        30 + CGFloat(lineCount) * permissionLineHeight + 9
+    }
+
+    static func permissionRowHeight(for perm: PermissionRequestInfo) -> CGFloat {
+        let lineCount = permissionDisplayLines(for: perm).count
+        return permissionButtonYOffset(lineCount: lineCount) + buttonH + 10
+    }
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
@@ -445,9 +474,10 @@ class IslandView: NSView {
                 let rh = rowHeight(for: session)
                 if point.y >= y && point.y < y + rh {
                     // Check permission button clicks
-                    if session.status == "needs_permission" && session.permissionRequest != nil {
+                    if session.status == "needs_permission", let perm = session.permissionRequest {
                         let textX: CGFloat = 14 + 16 + 6 + 7 + 8
-                        let btnY = y + Self.buttonY_offset
+                        let lineCount = Self.permissionDisplayLines(for: perm).count
+                        let btnY = y + Self.permissionButtonYOffset(lineCount: lineCount)
                         if point.y >= btnY && point.y < btnY + Self.buttonH {
                             let decisions = ["allow", "deny", "always_allow"]
                             var bx = textX
@@ -481,8 +511,8 @@ class IslandView: NSView {
     }
 
     func rowHeight(for session: CrabSession) -> CGFloat {
-        if session.status == "needs_permission" && session.permissionRequest != nil {
-            return Self.permissionRowHeight
+        if session.status == "needs_permission", let perm = session.permissionRequest {
+            return Self.permissionRowHeight(for: perm)
         }
         return Self.sessionRowHeight
     }
@@ -727,20 +757,18 @@ class IslandView: NSView {
 
         // Permission request: tool summary + action buttons
         if session.status == "needs_permission", let perm = session.permissionRequest {
-            let summaryText = "\(perm.toolName): \(perm.toolSummary)"
-            let maxChars = 50
-            let truncated = summaryText.count > maxChars
-                ? String(summaryText.prefix(maxChars - 3)) + "..."
-                : summaryText
+            let lines = Self.permissionDisplayLines(for: perm)
             let summaryAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
                 .foregroundColor: NSColor(white: 1, alpha: 0.7)
             ]
-            NSAttributedString(string: truncated, attributes: summaryAttrs)
-                .draw(at: NSPoint(x: textX, y: y + 30))
+            for (i, line) in lines.enumerated() {
+                NSAttributedString(string: line, attributes: summaryAttrs)
+                    .draw(at: NSPoint(x: textX, y: y + 30 + CGFloat(i) * Self.permissionLineHeight))
+            }
 
             // Action buttons
-            let btnY = y + Self.buttonY_offset
+            let btnY = y + Self.permissionButtonYOffset(lineCount: lines.count)
             let colors: [NSColor] = [.systemGreen, .systemRed, .systemBlue]
             var bx = textX
             for (bi, spec) in Self.buttonSpecs.enumerated() {
@@ -895,8 +923,8 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         }
         let w = IslandView.expandedWidth
         let totalRowH = sessions.values.reduce(CGFloat(0)) { sum, session in
-            if session.status == "needs_permission" && session.permissionRequest != nil {
-                return sum + IslandView.permissionRowHeight
+            if session.status == "needs_permission", let perm = session.permissionRequest {
+                return sum + IslandView.permissionRowHeight(for: perm)
             }
             return sum + IslandView.sessionRowHeight
         }
