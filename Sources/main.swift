@@ -197,11 +197,13 @@ struct PermissionRequestInfo: Codable {
     let toolName: String
     let toolSummary: String
     let toolContent: String?
+    let toolCategory: String?
 
     enum CodingKeys: String, CodingKey {
         case toolName = "tool_name"
         case toolSummary = "tool_summary"
         case toolContent = "tool_content"
+        case toolCategory = "tool_category"
     }
 }
 
@@ -616,9 +618,15 @@ class IslandView: NSView {
 
     // Button layout constants for permission rows
     private static let buttonH: CGFloat = 22
-    private static let buttonSpecs: [(label: String, width: CGFloat)] = [
-        ("Allow", 55), ("Deny", 48), ("Always", 60)
-    ]
+    private static func buttonSpecs(for perm: PermissionRequestInfo) -> [(label: String, width: CGFloat)] {
+        let category = perm.toolCategory ?? perm.toolName.lowercased()
+        let allowAllLabel = "Allow all \(category)"
+        let font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        let attrs: [NSAttributedString.Key: Any] = [.font: font]
+        let textWidth = NSAttributedString(string: allowAllLabel, attributes: attrs).size().width
+        let allowAllWidth = ceil(textWidth) + 16
+        return [("Yes", 40), ("No", 36), (allowAllLabel, allowAllWidth)]
+    }
     private static let buttonGap: CGFloat = 8
     private static let permissionLineHeight: CGFloat = 14
     private static let maxPermissionLines = 5
@@ -691,7 +699,7 @@ class IslandView: NSView {
                         if point.y >= btnY && point.y < btnY + Self.buttonH {
                             let decisions = ["allow", "deny", "always_allow"]
                             var bx = textX
-                            for (bi, spec) in Self.buttonSpecs.enumerated() {
+                            for (bi, spec) in Self.buttonSpecs(for: perm).enumerated() {
                                 if point.x >= bx && point.x < bx + spec.width {
                                     onPermissionResponse?(session, decisions[bi])
                                     return
@@ -1022,7 +1030,7 @@ class IslandView: NSView {
             let btnY = y + Self.permissionButtonY(for: perm)
             let colors: [NSColor] = [.systemGreen, .systemRed, .systemBlue]
             var bx = textX
-            for (bi, spec) in Self.buttonSpecs.enumerated() {
+            for (bi, spec) in Self.buttonSpecs(for: perm).enumerated() {
                 drawButton(spec.label, at: NSPoint(x: bx, y: btnY),
                            size: NSSize(width: spec.width, height: Self.buttonH),
                            color: colors[bi])

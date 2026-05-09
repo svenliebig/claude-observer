@@ -106,6 +106,23 @@ def write_session(session):
     os.replace(tmp, session_file)
 
 
+TOOL_CATEGORIES = {
+    "Write": "edits",
+    "Edit": "edits",
+    "NotebookEdit": "edits",
+    "Bash": "bash",
+    "Read": "file reads",
+    "Glob": "file searches",
+    "Grep": "file searches",
+    "WebFetch": "web fetches",
+    "WebSearch": "web searches",
+}
+
+
+def tool_category(tool_name):
+    return TOOL_CATEGORIES.get(tool_name, tool_name.lower())
+
+
 def summarize_tool_input(tool_name, tool_input):
     if not tool_input or not isinstance(tool_input, dict):
         return ""
@@ -238,16 +255,31 @@ elif event == "Notification":
 elif event == "PermissionRequest":
     # debug_log(f"PermissionRequest: session={session_id} tool={data.get('tool_name', '?')}")
     session = ensure_session()
+
+    tool_name = data.get("tool_name", "Unknown")
+    tool_input = data.get("tool_input", {})
+    category = tool_category(tool_name)
+
+    # Auto-allow if this category was already allowed for this session
+    if category in session.get("allowed_categories", []):
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": "PermissionRequest",
+                "decision": {"behavior": "allow"},
+            }
+        }
+        json.dump(output, sys.stdout)
+        sys.exit(0)
+
     was_working = session.get("status") in ("working", None)
     session["status"] = "needs_permission"
     session["last_activity"] = timestamp
 
-    tool_name = data.get("tool_name", "Unknown")
-    tool_input = data.get("tool_input", {})
     tool_summary = summarize_tool_input(tool_name, tool_input)
     perm = {
         "tool_name": tool_name,
         "tool_summary": tool_summary,
+        "tool_category": category,
     }
     if tool_name == "Write" and isinstance(tool_input, dict):
         content = tool_input.get("content", "")
@@ -298,6 +330,11 @@ elif event == "PermissionRequest":
                 session["last_activity"] = datetime.now(timezone.utc).strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 )
+                if decision == "always_allow":
+                    allowed = session.get("allowed_categories", [])
+                    if category not in allowed:
+                        allowed.append(category)
+                    session["allowed_categories"] = allowed
                 write_session(session)
 
             output = {
@@ -306,8 +343,6 @@ elif event == "PermissionRequest":
                     "decision": {"behavior": decision if decision == "deny" else "allow"},
                 }
             }
-            if decision == "always_allow":
-                output["hookSpecificOutput"]["decision"]["permissionRule"] = tool_name
             # debug_log(f"  -> exit 0 with output: {output}")
             json.dump(output, sys.stdout)
             sys.exit(0)
