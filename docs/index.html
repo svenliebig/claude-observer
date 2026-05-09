@@ -7,23 +7,31 @@
   <meta name="description" content="A macOS dynamic island app that shows your running Claude Code sessions as cute little crabs.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0c0e14;
-      --bg-card: #14171f;
-      --bg-card-hover: #1a1e28;
-      --border: #1e2330;
-      --text: #e4e6ed;
-      --text-dim: #8b8fa3;
-      --accent: #ff7033;
-      --accent-glow: rgba(255, 112, 51, 0.15);
-      --red: #ff3b3b;
-      --green: #34c759;
-      --pink: #ff3b82;
-      --blue: #5b7fff;
-      --yellow: #ffcc33;
-      --orange: #ff9500;
+      --bg: #08090f;
+      --bg-card: #12141c;
+      --bg-card-hover: #181b25;
+      --border: #1c2030;
+      --border-subtle: rgba(255,255,255,0.04);
+      --text: #e8eaf0;
+      --text-dim: #6e7291;
+      --text-muted: #454862;
+      --accent: #ff6b2b;
+      --accent-light: #ff8f5a;
+      --accent-glow: rgba(255, 107, 43, 0.12);
+      --red: #ff4757;
+      --green: #2ed573;
+      --pink: #ff6b9d;
+      --blue: #5f8aff;
+      --yellow: #ffc048;
+      --orange: #ff9f43;
+      --purple: #a78bfa;
+      --cyan: #67e8f9;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-xs: 6px;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -34,23 +42,41 @@
       color: var(--text);
       line-height: 1.6;
       overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Subtle grain overlay */
+    /* Noise texture overlay */
     body::before {
       content: '';
       position: fixed;
       inset: 0;
-      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      background: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
       pointer-events: none;
       z-index: 1000;
     }
 
     .container {
-      max-width: 1080px;
+      max-width: 1100px;
       margin: 0 auto;
       padding: 0 24px;
     }
+
+    /* --- SCROLL ANIMATIONS --- */
+    .reveal {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+    .reveal-delay-5 { transition-delay: 0.5s; }
 
     /* --- NAV --- */
     nav {
@@ -59,10 +85,10 @@
       left: 0;
       right: 0;
       z-index: 100;
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      background: rgba(12, 14, 20, 0.8);
-      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      background: rgba(8, 9, 15, 0.75);
+      border-bottom: 1px solid var(--border-subtle);
     }
     nav .container {
       display: flex;
@@ -75,111 +101,139 @@
       align-items: center;
       gap: 10px;
       font-weight: 700;
-      font-size: 16px;
+      font-size: 15px;
       text-decoration: none;
       color: var(--text);
+      letter-spacing: -0.01em;
     }
     .nav-crab { font-size: 22px; }
-    .nav-links { display: flex; gap: 28px; }
+    .nav-links { display: flex; gap: 8px; }
     .nav-links a {
       color: var(--text-dim);
       text-decoration: none;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
-      transition: color 0.2s;
+      padding: 6px 12px;
+      border-radius: 8px;
+      transition: color 0.2s, background 0.2s;
     }
-    .nav-links a:hover { color: var(--text); }
+    .nav-links a:hover {
+      color: var(--text);
+      background: rgba(255,255,255,0.04);
+    }
 
     /* --- HERO --- */
     .hero {
-      padding: 160px 0 100px;
+      padding: 160px 0 80px;
       text-align: center;
       position: relative;
     }
     .hero::before {
       content: '';
       position: absolute;
-      top: 60px;
+      top: 0;
       left: 50%;
       transform: translateX(-50%);
-      width: 600px;
-      height: 400px;
-      background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 70%);
+      width: 900px;
+      height: 600px;
+      background:
+        radial-gradient(ellipse 600px 300px at 50% 200px, rgba(255, 107, 43, 0.08) 0%, transparent 70%),
+        radial-gradient(ellipse 400px 250px at 30% 250px, rgba(91, 127, 255, 0.04) 0%, transparent 70%),
+        radial-gradient(ellipse 400px 250px at 70% 250px, rgba(255, 59, 130, 0.03) 0%, transparent 70%);
       pointer-events: none;
     }
     .hero-badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 14px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      font-size: 13px;
+      gap: 8px;
+      padding: 7px 16px 7px 10px;
+      background: rgba(255, 107, 43, 0.06);
+      border: 1px solid rgba(255, 107, 43, 0.12);
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
       color: var(--text-dim);
-      margin-bottom: 28px;
+      margin-bottom: 32px;
+      letter-spacing: 0.02em;
     }
-    .hero-badge span { color: var(--accent); }
+    .hero-badge .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: badge-pulse 2s ease-in-out infinite;
+    }
+    @keyframes badge-pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    .hero-badge span { color: var(--accent-light); }
     .hero h1 {
-      font-size: clamp(40px, 7vw, 72px);
-      font-weight: 800;
-      line-height: 1.05;
-      letter-spacing: -0.03em;
-      margin-bottom: 20px;
+      font-size: clamp(44px, 7vw, 76px);
+      font-weight: 900;
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+      margin-bottom: 24px;
     }
-    .hero h1 .accent { color: var(--accent); }
+    .hero h1 .accent {
+      background: linear-gradient(135deg, var(--accent) 0%, #ff9f43 50%, var(--accent-light) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
     .hero p {
-      font-size: 18px;
+      font-size: 17px;
       color: var(--text-dim);
-      max-width: 560px;
-      margin: 0 auto 40px;
+      max-width: 520px;
+      margin: 0 auto 44px;
       line-height: 1.7;
+    }
+    .hero-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
     }
     .hero-cta {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 14px 28px;
-      background: var(--accent);
+      padding: 13px 28px;
+      background: linear-gradient(135deg, var(--accent) 0%, #e85d20 100%);
       color: #fff;
       font-weight: 600;
-      font-size: 15px;
-      border-radius: 10px;
+      font-size: 14px;
+      border-radius: 12px;
       text-decoration: none;
       transition: transform 0.2s, box-shadow 0.2s;
-      box-shadow: 0 4px 24px rgba(255, 112, 51, 0.3);
+      box-shadow: 0 4px 20px rgba(255, 107, 43, 0.25), 0 0 0 1px rgba(255,255,255,0.06) inset;
     }
     .hero-cta:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 32px rgba(255, 112, 51, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(255, 107, 43, 0.35), 0 0 0 1px rgba(255,255,255,0.1) inset;
     }
     .hero-secondary {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 14px 28px;
-      background: transparent;
+      padding: 13px 28px;
+      background: rgba(255,255,255,0.03);
       color: var(--text-dim);
       font-weight: 500;
-      font-size: 15px;
+      font-size: 14px;
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: 12px;
       text-decoration: none;
-      margin-left: 12px;
-      transition: border-color 0.2s, color 0.2s;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
     }
     .hero-secondary:hover {
-      border-color: var(--text-dim);
+      border-color: rgba(255,255,255,0.12);
       color: var(--text);
+      background: rgba(255,255,255,0.05);
     }
 
-    /* --- ANIMATED CRAB HERO --- */
-    .hero-visual {
-      margin-top: 60px;
-      position: relative;
-    }
-
-    /* --- CRAB SVGs --- */
+    /* --- CRAB SVG ANIMATIONS --- */
     .crab-svg { display: inline-block; }
 
     @keyframes wiggle-legs {
@@ -188,15 +242,15 @@
     }
     @keyframes bounce {
       0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-2px); }
+      50% { transform: translateY(-3px); }
     }
     @keyframes sparkle {
-      0%, 100% { opacity: 0.3; }
+      0%, 100% { opacity: 0.2; }
       50% { opacity: 1; }
     }
     @keyframes zzz {
-      0%, 100% { opacity: 0.4; transform: translateY(0); }
-      50% { opacity: 0.9; transform: translateY(-3px); }
+      0%, 100% { opacity: 0.3; transform: translateY(0); }
+      50% { opacity: 0.8; transform: translateY(-4px); }
     }
     @keyframes pulse-badge {
       0%, 100% { transform: scale(1); }
@@ -206,37 +260,39 @@
       0%, 40% { transform: translateX(0); }
       50%, 90% { transform: translateX(1px); }
     }
-    @keyframes glow-pulse {
-      0%, 100% { opacity: 0.3; }
-      50% { opacity: 0.7; }
-    }
     @keyframes glow-green {
-      0%, 100% { box-shadow: 0 0 12px rgba(52, 199, 89, 0.2); }
-      50% { box-shadow: 0 0 20px rgba(52, 199, 89, 0.35); }
+      0%, 100% { box-shadow: 0 0 16px rgba(46, 213, 115, 0.15); }
+      50% { box-shadow: 0 0 28px rgba(46, 213, 115, 0.3); }
     }
     @keyframes glow-orange {
-      0%, 100% { box-shadow: 0 0 12px rgba(255, 149, 0, 0.3); }
-      50% { box-shadow: 0 0 24px rgba(255, 149, 0, 0.6); }
+      0%, 100% { box-shadow: 0 0 16px rgba(255, 159, 67, 0.2); }
+      50% { box-shadow: 0 0 28px rgba(255, 159, 67, 0.4); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
     }
     .crab-working .crab-legs { animation: wiggle-legs 0.5s ease-in-out infinite; transform-origin: center; }
     .crab-working .crab-sparkle { animation: sparkle 0.6s ease-in-out infinite; }
     .crab-working .crab-sparkle:nth-child(2) { animation-delay: 0.2s; }
     .crab-working .crab-sparkle:nth-child(3) { animation-delay: 0.4s; }
     .crab-working .crab-pupils { animation: look 2s ease-in-out infinite; }
-
     .crab-input { animation: bounce 0.4s ease-in-out infinite; }
     .crab-input .crab-badge { animation: pulse-badge 0.6s ease-in-out infinite; }
-
     .crab-idle .crab-zzz { animation: zzz 2s ease-in-out infinite; }
     .crab-idle .crab-zzz:nth-child(2) { animation-delay: 0.6s; }
 
     /* --- DYNAMIC ISLAND MOCKUP --- */
+    .hero-visual {
+      margin-top: 64px;
+      position: relative;
+    }
     .island-demo {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 32px;
-      max-width: 680px;
+      gap: 28px;
+      max-width: 700px;
       margin: 0 auto;
     }
 
@@ -245,104 +301,96 @@
       align-items: center;
       gap: 10px;
       padding: 6px 20px 6px 14px;
-      background: rgba(20, 23, 31, 0.95);
+      background: rgba(18, 20, 28, 0.95);
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 22px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.03);
-      animation: glow-green 2s ease-in-out infinite;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02);
+      animation: glow-green 2.5s ease-in-out infinite;
       position: relative;
     }
-    .island-compact-label {
+    .island-label {
       position: absolute;
       top: -28px;
       left: 50%;
       transform: translateX(-50%);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
-      color: var(--text-dim);
-      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       white-space: nowrap;
     }
-
     .island-compact .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: var(--green);
+      box-shadow: 0 0 6px rgba(46, 213, 115, 0.5);
     }
     .island-compact .status-text {
       font-size: 13px;
       font-weight: 500;
-      color: rgba(255,255,255,0.9);
+      color: rgba(255,255,255,0.85);
     }
     .island-compact .count {
       font-size: 12px;
       font-weight: 600;
-      color: rgba(255,255,255,0.4);
+      color: rgba(255,255,255,0.3);
       font-family: 'JetBrains Mono', monospace;
     }
 
     .island-arrow {
-      color: var(--text-dim);
-      font-size: 20px;
-      opacity: 0.3;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      opacity: 0.4;
     }
 
     .island-expanded {
       width: 100%;
-      max-width: 420px;
-      background: rgba(20, 23, 31, 0.95);
+      max-width: 440px;
+      background: rgba(18, 20, 28, 0.97);
       border: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 18px;
+      border-radius: 20px;
       overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03), 0 0 16px rgba(52, 199, 89, 0.15);
+      box-shadow:
+        0 24px 80px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(255,255,255,0.02),
+        0 0 20px rgba(46, 213, 115, 0.08);
       position: relative;
     }
-    .island-expanded-label {
-      position: absolute;
-      top: -28px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-dim);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
     .island-header {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 8px 18px;
+      padding: 10px 18px;
     }
     .island-header .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       background: var(--green);
+      box-shadow: 0 0 6px rgba(46, 213, 115, 0.5);
     }
     .island-header .status-text {
       font-size: 13px;
       font-weight: 500;
-      color: rgba(255,255,255,0.9);
+      color: rgba(255,255,255,0.85);
       flex: 1;
     }
     .island-header .count {
       font-size: 12px;
       font-weight: 600;
-      color: rgba(255,255,255,0.4);
+      color: rgba(255,255,255,0.3);
       font-family: 'JetBrains Mono', monospace;
     }
-
     .island-sep {
       height: 1px;
-      background: rgba(255,255,255,0.07);
+      background: rgba(255,255,255,0.05);
       margin: 0 18px;
     }
-
     .island-row {
       display: flex;
       align-items: center;
@@ -350,143 +398,232 @@
       padding: 10px 18px;
       transition: background 0.15s;
     }
-    .island-row:hover {
-      background: rgba(255,255,255,0.04);
-    }
-    .island-row .row-icon {
-      width: 20px;
-      height: 20px;
-      flex-shrink: 0;
-    }
-    .island-row .row-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .island-row .row-content {
-      flex: 1;
-      min-width: 0;
-    }
-    .island-row .row-top {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .island-row .row-name {
-      font-size: 13px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.95);
-    }
-    .island-row .row-dir {
-      font-size: 12px;
-      color: rgba(255,255,255,0.35);
-    }
-    .island-row .row-status {
-      font-size: 11px;
-      font-weight: 600;
+    .island-row:hover { background: rgba(255,255,255,0.03); }
+    .island-row .row-icon { width: 20px; height: 20px; flex-shrink: 0; }
+    .island-row .row-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .island-row .row-content { flex: 1; min-width: 0; }
+    .island-row .row-top { display: flex; align-items: center; gap: 8px; }
+    .island-row .row-name { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9); }
+    .island-row .row-dir { font-size: 12px; color: rgba(255,255,255,0.3); }
+    .island-row .row-status { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+    .island-row .row-time { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: rgba(255,255,255,0.2); flex-shrink: 0; }
+    .island-row .row-path { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.15); margin-top: 2px; }
+    .island-row .terminal-badge {
+      font-size: 9px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(95, 138, 255, 0.12);
+      color: var(--blue);
       letter-spacing: 0.03em;
-    }
-    .island-row .row-time {
-      font-size: 11px;
-      font-family: 'JetBrains Mono', monospace;
-      color: rgba(255,255,255,0.3);
-      flex-shrink: 0;
-    }
-    .island-row .row-path {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      color: rgba(255,255,255,0.22);
-      margin-top: 2px;
+      text-transform: lowercase;
     }
 
-    /* --- SECTION SHARED --- */
-    section { padding: 80px 0; }
-    .section-label {
-      font-size: 13px;
+    /* Permission row in island */
+    .island-permission {
+      margin: 0 12px 10px;
+      padding: 10px 14px;
+      background: rgba(255, 159, 67, 0.06);
+      border: 1px solid rgba(255, 159, 67, 0.12);
+      border-radius: 10px;
+    }
+    .island-permission .perm-text {
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+    .island-permission .perm-tool {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--orange);
       font-weight: 600;
+    }
+    .island-permission .perm-buttons {
+      display: flex;
+      gap: 6px;
+    }
+    .island-permission .perm-btn {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+    }
+    .perm-btn.allow { background: rgba(46, 213, 115, 0.15); color: var(--green); }
+    .perm-btn.deny { background: rgba(255, 71, 87, 0.12); color: var(--red); }
+    .perm-btn.always { background: rgba(95, 138, 255, 0.12); color: var(--blue); }
+
+    /* Code preview in island */
+    .island-code-preview {
+      margin: 0 12px 10px;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .code-preview-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: rgba(255,255,255,0.3);
+    }
+    .code-preview-header .file-icon { color: var(--blue); }
+    .code-preview-body {
+      padding: 8px 0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      line-height: 1.6;
+    }
+    .code-line {
+      display: flex;
+      padding: 0 10px;
+    }
+    .code-line .line-num {
+      width: 24px;
+      color: rgba(255,255,255,0.12);
+      text-align: right;
+      margin-right: 12px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .code-line .line-content { color: rgba(255,255,255,0.5); }
+    .code-line .line-content .ck { color: var(--cyan); }
+    .code-line .line-content .cs { color: var(--orange); }
+    .code-line .line-content .cn { color: var(--green); }
+    .code-line .line-content .cp { color: var(--purple); }
+    .code-line .line-content .cb { color: rgba(255,255,255,0.25); }
+
+    /* --- SECTION SHARED --- */
+    section { padding: 100px 0; }
+    .section-label {
+      font-size: 12px;
+      font-weight: 700;
       color: var(--accent);
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
     .section-title {
-      font-size: clamp(28px, 4vw, 40px);
-      font-weight: 800;
-      letter-spacing: -0.02em;
+      font-size: clamp(30px, 4.5vw, 44px);
+      font-weight: 900;
+      letter-spacing: -0.03em;
       margin-bottom: 16px;
+      line-height: 1.1;
     }
     .section-desc {
       font-size: 16px;
       color: var(--text-dim);
-      max-width: 560px;
+      max-width: 520px;
       line-height: 1.7;
+    }
+    .section-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
     }
 
     /* --- FEATURES --- */
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-      margin-top: 48px;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      margin-top: 56px;
+      background: var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
     }
     .feature-card {
       background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 28px;
-      transition: border-color 0.2s, background 0.2s;
+      padding: 32px;
+      transition: background 0.3s;
+      position: relative;
     }
     .feature-card:hover {
-      border-color: rgba(255, 112, 51, 0.2);
       background: var(--bg-card-hover);
     }
+    .feature-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255, 107, 43, 0.2), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .feature-card:hover::after { opacity: 1; }
     .feature-icon {
       width: 40px;
       height: 40px;
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
-      margin-bottom: 16px;
+      font-size: 18px;
+      margin-bottom: 20px;
     }
-    .feature-icon.orange { background: rgba(255, 112, 51, 0.12); }
-    .feature-icon.red { background: rgba(255, 59, 59, 0.12); }
-    .feature-icon.green { background: rgba(52, 199, 89, 0.12); }
-    .feature-icon.blue { background: rgba(91, 127, 255, 0.12); }
-    .feature-icon.pink { background: rgba(255, 59, 130, 0.12); }
-    .feature-icon.yellow { background: rgba(255, 204, 51, 0.12); }
+    .feature-icon.orange { background: rgba(255, 107, 43, 0.1); }
+    .feature-icon.red { background: rgba(255, 71, 87, 0.1); }
+    .feature-icon.green { background: rgba(46, 213, 115, 0.1); }
+    .feature-icon.blue { background: rgba(95, 138, 255, 0.1); }
+    .feature-icon.pink { background: rgba(255, 107, 157, 0.1); }
+    .feature-icon.yellow { background: rgba(255, 192, 72, 0.1); }
+    .feature-icon.purple { background: rgba(167, 139, 250, 0.1); }
+    .feature-icon.cyan { background: rgba(103, 232, 249, 0.1); }
     .feature-card h3 {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       margin-bottom: 8px;
+      letter-spacing: -0.01em;
     }
     .feature-card p {
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text-dim);
-      line-height: 1.6;
+      line-height: 1.65;
+    }
+    .feature-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 7px;
+      border-radius: 4px;
+      background: rgba(46, 213, 115, 0.1);
+      color: var(--green);
+      margin-bottom: 12px;
     }
 
     /* --- CRAB STATES --- */
-    .states-section { padding-bottom: 40px; }
+    .states-section { padding-bottom: 60px; }
     .states-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 16px;
-      margin-top: 48px;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-top: 56px;
     }
     .state-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 32px 24px;
+      border-radius: var(--radius);
+      padding: 32px 20px;
       text-align: center;
-      transition: border-color 0.2s, background 0.2s;
+      transition: border-color 0.3s, background 0.3s, transform 0.3s;
     }
     .state-card:hover {
-      border-color: rgba(255, 112, 51, 0.15);
+      border-color: rgba(255, 107, 43, 0.15);
       background: var(--bg-card-hover);
+      transform: translateY(-4px);
     }
     .state-crab {
       display: flex;
@@ -494,48 +631,56 @@
       margin-bottom: 20px;
     }
     .state-card h3 {
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 700;
       margin-bottom: 6px;
     }
     .state-card p {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text-dim);
       line-height: 1.5;
     }
 
     /* --- HOW IT WORKS --- */
     .how-section {
-      border-top: 1px solid var(--border);
-      padding-top: 80px;
+      padding-top: 100px;
     }
     .how-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 48px;
-      margin-top: 48px;
+      margin-top: 56px;
       align-items: start;
     }
-    .how-diagram {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 32px;
+    .how-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
     }
     .how-step {
       display: flex;
-      gap: 16px;
-      margin-bottom: 24px;
+      gap: 20px;
+      padding: 24px 0;
+      position: relative;
     }
-    .how-step:last-child { margin-bottom: 0; }
+    .how-step:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 15px;
+      top: 56px;
+      bottom: 0;
+      width: 1px;
+      background: linear-gradient(to bottom, var(--border), transparent);
+    }
     .how-num {
       width: 32px;
       height: 32px;
-      border-radius: 8px;
-      background: rgba(255, 112, 51, 0.1);
+      border-radius: 10px;
+      background: rgba(255, 107, 43, 0.08);
+      border: 1px solid rgba(255, 107, 43, 0.15);
       color: var(--accent);
       font-weight: 700;
-      font-size: 14px;
+      font-size: 13px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -543,82 +688,121 @@
     }
     .how-step h4 {
       font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 4px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
     }
     .how-step p {
       font-size: 13px;
       color: var(--text-dim);
-      line-height: 1.6;
+      line-height: 1.65;
     }
 
     /* Flow diagram */
+    .how-diagram {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+    }
     .flow {
       display: flex;
       flex-direction: column;
       gap: 0;
     }
     .flow-node {
-      background: rgba(255, 112, 51, 0.06);
-      border: 1px solid rgba(255, 112, 51, 0.15);
-      border-radius: 8px;
-      padding: 12px 16px;
+      background: rgba(255, 107, 43, 0.04);
+      border: 1px solid rgba(255, 107, 43, 0.1);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
       font-size: 13px;
       font-weight: 500;
+      line-height: 1.5;
     }
     .flow-node code {
       font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
+      font-size: 11px;
       color: var(--accent);
-      background: rgba(255, 112, 51, 0.08);
+      background: rgba(255, 107, 43, 0.08);
       padding: 2px 6px;
       border-radius: 4px;
     }
     .flow-arrow {
       display: flex;
       justify-content: center;
-      padding: 4px 0;
-      color: var(--text-dim);
-      font-size: 16px;
-      opacity: 0.4;
+      padding: 6px 0;
+      color: var(--text-muted);
+      font-size: 14px;
     }
     .flow-node.file-node {
-      background: rgba(91, 127, 255, 0.06);
-      border-color: rgba(91, 127, 255, 0.15);
+      background: rgba(95, 138, 255, 0.04);
+      border-color: rgba(95, 138, 255, 0.1);
     }
     .flow-node.file-node code {
       color: var(--blue);
-      background: rgba(91, 127, 255, 0.08);
+      background: rgba(95, 138, 255, 0.08);
     }
     .flow-node.app-node {
-      background: rgba(52, 199, 89, 0.06);
-      border-color: rgba(52, 199, 89, 0.15);
+      background: rgba(46, 213, 115, 0.04);
+      border-color: rgba(46, 213, 115, 0.1);
     }
     .flow-node.app-node code {
       color: var(--green);
-      background: rgba(52, 199, 89, 0.08);
+      background: rgba(46, 213, 115, 0.08);
+    }
+
+    .events-grid {
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+    .events-grid-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .events-list {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 5px 12px;
+      font-size: 11px;
+    }
+    .events-list code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--accent);
+      background: rgba(255, 107, 43, 0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .events-list .event-desc {
+      color: var(--text-dim);
+      font-size: 11px;
     }
 
     /* --- INSTALL --- */
     .install-section {
-      border-top: 1px solid var(--border);
-      padding-top: 80px;
+      padding-top: 100px;
     }
     .install-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: var(--radius);
       padding: 40px;
-      margin-top: 40px;
+      margin-top: 48px;
     }
     .install-steps {
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 28px;
     }
     .install-step {
       display: flex;
-      gap: 16px;
+      gap: 20px;
       align-items: flex-start;
     }
     .install-step-num {
@@ -628,7 +812,7 @@
       background: var(--accent);
       color: #fff;
       font-weight: 700;
-      font-size: 13px;
+      font-size: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -637,18 +821,19 @@
     }
     .install-step h4 {
       font-size: 15px;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 6px;
+      letter-spacing: -0.01em;
     }
     .install-step p {
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text-dim);
       line-height: 1.6;
     }
     pre {
-      background: rgba(0,0,0,0.3);
+      background: rgba(0,0,0,0.35);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--radius-xs);
       padding: 14px 18px;
       font-family: 'JetBrains Mono', monospace;
       font-size: 13px;
@@ -656,60 +841,142 @@
       overflow-x: auto;
       margin-top: 8px;
     }
-    pre .comment { color: var(--text-dim); }
+    pre .comment { color: var(--text-muted); }
     pre .cmd { color: var(--accent); }
+
+    .install-footer {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+    .install-footer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .install-footer h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text-dim);
+    }
+    .install-tip {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 20px;
+      line-height: 1.6;
+    }
+    .install-tip strong { color: var(--text-dim); }
+
+    /* --- TERMINAL SUPPORT --- */
+    .terminals-section {
+      text-align: center;
+    }
+    .terminals-grid {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 40px;
+    }
+    .terminal-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: border-color 0.2s, background 0.2s, transform 0.2s;
+    }
+    .terminal-card:hover {
+      border-color: rgba(95, 138, 255, 0.2);
+      background: var(--bg-card-hover);
+      transform: translateY(-2px);
+    }
+    .terminal-card .t-name {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .terminal-card .t-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(95, 138, 255, 0.1);
+      color: var(--blue);
+    }
 
     /* --- NAMES --- */
     .names-section {
-      border-top: 1px solid var(--border);
-      padding-top: 80px;
+      text-align: center;
     }
     .names-cloud {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 32px;
+      margin-top: 36px;
       justify-content: center;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
     }
     .name-tag {
       display: inline-block;
-      padding: 6px 14px;
+      padding: 5px 14px;
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 20px;
+      border-radius: 100px;
       font-size: 13px;
       font-weight: 500;
       color: var(--text-dim);
-      transition: border-color 0.2s, color 0.2s;
+      transition: border-color 0.2s, color 0.2s, transform 0.2s, background 0.2s;
     }
     .name-tag:hover {
-      border-color: var(--accent);
-      color: var(--accent);
+      border-color: rgba(255, 107, 43, 0.3);
+      color: var(--accent-light);
+      transform: translateY(-2px);
+      background: rgba(255, 107, 43, 0.04);
     }
 
     /* --- FOOTER --- */
     footer {
-      border-top: 1px solid var(--border);
-      padding: 40px 0;
+      padding: 48px 0;
       text-align: center;
     }
     footer p {
-      font-size: 14px;
-      color: var(--text-dim);
+      font-size: 13px;
+      color: var(--text-muted);
     }
     footer a {
-      color: var(--accent);
+      color: var(--text-dim);
       text-decoration: none;
+      transition: color 0.2s;
     }
-    footer a:hover { text-decoration: underline; }
+    footer a:hover { color: var(--accent); }
+    footer .footer-tech {
+      margin-top: 6px;
+      font-size: 11px;
+      color: rgba(69, 72, 98, 0.6);
+    }
 
     /* --- RESPONSIVE --- */
+    @media (max-width: 900px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .states-grid { grid-template-columns: repeat(3, 1fr); }
+    }
     @media (max-width: 768px) {
+      .features-grid { grid-template-columns: 1fr; }
       .how-grid { grid-template-columns: 1fr; }
-      .hero-cta, .hero-secondary { display: flex; justify-content: center; margin: 8px auto 0; }
-      .hero-buttons { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+      .hero-buttons { flex-direction: column; align-items: center; }
       .nav-links { display: none; }
-      .states-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+      .states-grid { grid-template-columns: repeat(2, 1fr); }
+      .install-footer-grid { grid-template-columns: 1fr; }
+      section { padding: 64px 0; }
+    }
+    @media (max-width: 480px) {
+      .states-grid { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -719,38 +986,36 @@
 <nav>
   <div class="container">
     <a class="nav-brand" href="#">
-      <svg class="nav-crab crab-svg crab-working" width="24" height="24" viewBox="0 0 64 64">
+      <svg class="nav-crab crab-svg crab-working" width="22" height="22" viewBox="0 0 64 64">
         <g class="crab-legs">
-          <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="15" y1="30" x2="2" y2="28" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-          <line x1="49" y1="30" x2="62" y2="28" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="17" y1="22" x2="5" y2="16" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="47" y1="22" x2="59" y2="16" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="16" y1="26" x2="3" y2="22" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="48" y1="26" x2="61" y2="22" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="15" y1="30" x2="2" y2="28" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="49" y1="30" x2="62" y2="28" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
         </g>
-        <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
-        <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
-        <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
-        <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
-        <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-        <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+        <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff6b2b"/>
+        <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff6b2b"/>
+        <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff6b2b"/>
+        <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e65a1a"/>
+        <line x1="22" y1="36" x2="21" y2="44" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="42" y1="36" x2="43" y2="44" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
         <circle cx="21" cy="46" r="4" fill="white"/>
         <circle cx="43" cy="46" r="4" fill="white"/>
         <g class="crab-pupils">
           <circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/>
           <circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/>
         </g>
-        <path d="M29,25 Q32,22 35,25" stroke="#e6601a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-        <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
-        <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffcc33" opacity="0.3"/>
-        <circle class="crab-sparkle" cx="50" cy="54" r="1.5" fill="#ffcc33" opacity="0.3"/>
+        <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffc048" opacity="0.3"/>
+        <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffc048" opacity="0.3"/>
       </svg>
       Claude Observer
     </a>
     <div class="nav-links">
       <a href="#features">Features</a>
-      <a href="#states">Crab States</a>
-      <a href="#how">How It Works</a>
+      <a href="#states">States</a>
+      <a href="#how">Architecture</a>
       <a href="#install">Install</a>
     </div>
   </div>
@@ -760,10 +1025,11 @@
 <section class="hero">
   <div class="container">
     <div class="hero-badge">
+      <div class="badge-dot"></div>
       <span>macOS</span> Dynamic Island for Claude Code
     </div>
     <h1>Your Claude sessions<br>as cute little <span class="accent">crabs</span></h1>
-    <p>A macOS dynamic island that floats at the top of your screen, giving each Claude Code session a unique crab name and showing what they're all up to at a glance.</p>
+    <p>A floating dynamic island for macOS that gives each Claude Code session a unique crab identity and shows what they're all up to at a glance.</p>
     <div class="hero-buttons">
       <a class="hero-cta" href="#install">Get Started</a>
       <a class="hero-secondary" href="https://github.com/svenliebig/claude-observer">View on GitHub</a>
@@ -772,59 +1038,56 @@
     <!-- Dynamic Island mockup -->
     <div class="hero-visual">
       <div class="island-demo">
-
-        <!-- Compact state -->
+        <!-- Compact -->
         <div class="island-compact" style="position:relative">
-          <div class="island-compact-label">Compact</div>
-          <svg class="crab-svg crab-working" width="24" height="24" viewBox="0 0 64 64">
+          <div class="island-label">Compact</div>
+          <svg class="crab-svg crab-working" width="22" height="22" viewBox="0 0 64 64">
             <g class="crab-legs">
-              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
             </g>
-            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
-            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
-            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
-            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
-            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff6b2b"/>
+            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff6b2b"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff6b2b"/>
+            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e65a1a"/>
+            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
             <circle cx="21" cy="46" r="4" fill="white"/>
             <circle cx="43" cy="46" r="4" fill="white"/>
             <g class="crab-pupils"><circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/></g>
-            <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
-            <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffcc33" opacity="0.3"/>
+            <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffc048" opacity="0.3"/>
           </svg>
           <div class="status-dot"></div>
           <span class="status-text">2 working</span>
           <span class="count">3</span>
         </div>
 
-        <div class="island-arrow">&#8595; click</div>
+        <div class="island-arrow">click to expand</div>
 
-        <!-- Expanded state -->
+        <!-- Expanded -->
         <div class="island-expanded" style="position:relative">
-          <div class="island-expanded-label">Expanded</div>
+          <div class="island-label">Expanded</div>
 
-          <!-- Header row -->
           <div class="island-header">
-            <svg class="crab-svg crab-working" width="24" height="24" viewBox="0 0 64 64">
+            <svg class="crab-svg crab-working" width="22" height="22" viewBox="0 0 64 64">
               <g class="crab-legs">
-                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
               </g>
-              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
-              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
-              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
-              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
-              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff6b2b"/>
+              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff6b2b"/>
+              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff6b2b"/>
+              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e65a1a"/>
+              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
               <circle cx="21" cy="46" r="4" fill="white"/>
               <circle cx="43" cy="46" r="4" fill="white"/>
               <g class="crab-pupils"><circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/></g>
-              <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
+              <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffc048" opacity="0.3"/>
             </svg>
             <div class="status-dot"></div>
             <span class="status-text">2 working</span>
@@ -837,26 +1100,27 @@
           <div class="island-row">
             <svg class="row-icon crab-svg crab-working" viewBox="0 0 64 64">
               <g class="crab-legs">
-                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
               </g>
-              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
-              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
-              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
-              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
-              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff6b2b"/>
+              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff6b2b"/>
+              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff6b2b"/>
+              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e65a1a"/>
+              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
               <circle cx="21" cy="46" r="4" fill="white"/>
               <circle cx="43" cy="46" r="4" fill="white"/>
               <g class="crab-pupils"><circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/></g>
             </svg>
-            <div class="row-dot" style="background:var(--green)"></div>
+            <div class="row-dot" style="background:var(--green);box-shadow:0 0 4px rgba(46,213,115,0.4)"></div>
             <div class="row-content">
               <div class="row-top">
                 <span class="row-name">Pinchy</span>
                 <span class="row-dir">my-api</span>
+                <span class="terminal-badge">tmux</span>
                 <span class="row-status" style="color:var(--green)">WORKING</span>
               </div>
               <div class="row-path">~/workspace/projects/my-api</div>
@@ -864,64 +1128,93 @@
             <span class="row-time">3m</span>
           </div>
 
-          <!-- Session 2: Needs Input -->
+          <!-- Session 2: Needs Permission with code preview -->
           <div class="island-row">
             <svg class="row-icon crab-svg crab-input" viewBox="0 0 64 64">
               <g>
-                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
-                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
-                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
-                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff9f43" stroke-width="3" stroke-linecap="round"/>
+                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff9f43" stroke-width="3" stroke-linecap="round"/>
+                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff9f43" stroke-width="3" stroke-linecap="round"/>
+                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff9f43" stroke-width="3" stroke-linecap="round"/>
               </g>
-              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff3b3b"/>
-              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff3b3b"/>
-              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff3b3b"/>
-              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#d92a2a"/>
-              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
-              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff3b3b" stroke-width="3" stroke-linecap="round"/>
+              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff9f43"/>
+              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff9f43"/>
+              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff9f43"/>
+              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#d98a00"/>
+              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff9f43" stroke-width="3" stroke-linecap="round"/>
+              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff9f43" stroke-width="3" stroke-linecap="round"/>
               <circle cx="21" cy="46" r="4" fill="white"/>
               <circle cx="43" cy="46" r="4" fill="white"/>
               <circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/>
               <circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/>
-              <circle class="crab-badge" cx="54" cy="50" r="9" fill="#ff3b3b" stroke="white" stroke-width="2"/>
+              <circle class="crab-badge" cx="54" cy="50" r="9" fill="#ff9f43" stroke="white" stroke-width="2"/>
               <text x="54" y="54" text-anchor="middle" fill="white" font-size="14" font-weight="bold">!</text>
             </svg>
-            <div class="row-dot" style="background:var(--red)"></div>
+            <div class="row-dot" style="background:var(--orange);box-shadow:0 0 4px rgba(255,159,67,0.4)"></div>
             <div class="row-content">
               <div class="row-top">
                 <span class="row-name">Clawdia</span>
                 <span class="row-dir">frontend</span>
-                <span class="row-status" style="color:var(--orange)">INPUT</span>
+                <span class="terminal-badge">ghostty</span>
+                <span class="row-status" style="color:var(--orange)">PERMISSION</span>
               </div>
               <div class="row-path">~/workspace/projects/frontend</div>
             </div>
             <span class="row-time">12m</span>
           </div>
 
+          <!-- Permission request with code preview -->
+          <div class="island-permission">
+            <div class="perm-text">Write to <span class="perm-tool">src/config.json</span></div>
+            <div class="perm-buttons">
+              <button class="perm-btn allow">Allow</button>
+              <button class="perm-btn deny">Deny</button>
+              <button class="perm-btn always">Always Allow</button>
+            </div>
+          </div>
+
+          <!-- Code preview -->
+          <div class="island-code-preview">
+            <div class="code-preview-header">
+              <span class="file-icon">~</span> src/config.json
+            </div>
+            <div class="code-preview-body">
+              <div class="code-line"><span class="line-num">1</span><span class="line-content"><span class="cb">{</span></span></div>
+              <div class="code-line"><span class="line-num">2</span><span class="line-content">  <span class="ck">"name"</span>: <span class="cs">"my-app"</span>,</span></div>
+              <div class="code-line"><span class="line-num">3</span><span class="line-content">  <span class="ck">"port"</span>: <span class="cn">3000</span>,</span></div>
+              <div class="code-line"><span class="line-num">4</span><span class="line-content">  <span class="ck">"debug"</span>: <span class="cp">true</span>,</span></div>
+              <div class="code-line"><span class="line-num">5</span><span class="line-content">  <span class="ck">"features"</span>: <span class="cb">{</span></span></div>
+              <div class="code-line"><span class="line-num">6</span><span class="line-content">    <span class="ck">"darkMode"</span>: <span class="cp">true</span></span></div>
+              <div class="code-line"><span class="line-num">7</span><span class="line-content">  <span class="cb">}</span></span></div>
+              <div class="code-line"><span class="line-num">8</span><span class="line-content"><span class="cb">}</span></span></div>
+            </div>
+          </div>
+
           <!-- Session 3: Working -->
-          <div class="island-row">
+          <div class="island-row" style="padding-bottom:12px">
             <svg class="row-icon crab-svg crab-working" viewBox="0 0 64 64">
               <g class="crab-legs">
-                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+                <line x1="17" y1="22" x2="5" y2="16" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="47" y1="22" x2="59" y2="16" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="16" y1="26" x2="3" y2="22" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+                <line x1="48" y1="26" x2="61" y2="22" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
               </g>
-              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
-              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
-              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
-              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
-              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
-              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="3" stroke-linecap="round"/>
+              <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff6b2b"/>
+              <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff6b2b"/>
+              <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff6b2b"/>
+              <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e65a1a"/>
+              <line x1="22" y1="36" x2="21" y2="44" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
+              <line x1="42" y1="36" x2="43" y2="44" stroke="#ff6b2b" stroke-width="3" stroke-linecap="round"/>
               <circle cx="21" cy="46" r="4" fill="white"/>
               <circle cx="43" cy="46" r="4" fill="white"/>
               <g class="crab-pupils"><circle cx="21.5" cy="46" r="2" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="2" fill="#1a1a1a"/></g>
             </svg>
-            <div class="row-dot" style="background:var(--green)"></div>
+            <div class="row-dot" style="background:var(--green);box-shadow:0 0 4px rgba(46,213,115,0.4)"></div>
             <div class="row-content">
               <div class="row-top">
                 <span class="row-name">Scuttles</span>
                 <span class="row-dir">infra</span>
+                <span class="terminal-badge">iterm</span>
                 <span class="row-status" style="color:var(--green)">WORKING</span>
               </div>
               <div class="row-path">~/workspace/projects/infra</div>
@@ -929,24 +1222,25 @@
             <span class="row-time">1m</span>
           </div>
         </div>
-
       </div>
     </div>
   </div>
 </section>
 
+<div class="section-divider"></div>
+
 <!-- FEATURES -->
 <section id="features">
   <div class="container">
-    <div class="section-label">Features</div>
-    <h2 class="section-title">Everything at a glance</h2>
-    <p class="section-desc">Keep track of all your parallel Claude Code sessions without switching between terminal windows.</p>
+    <div class="section-label reveal">Features</div>
+    <h2 class="section-title reveal">Everything at a glance</h2>
+    <p class="section-desc reveal">Keep track of all your parallel Claude Code sessions without switching between terminal windows.</p>
 
-    <div class="features-grid">
+    <div class="features-grid reveal">
       <div class="feature-card">
         <div class="feature-icon orange">
           <svg width="20" height="20" viewBox="0 0 64 64">
-            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff6b2b"/>
             <circle cx="21" cy="46" r="3" fill="white"/>
             <circle cx="43" cy="46" r="3" fill="white"/>
             <circle cx="21.5" cy="46" r="1.5" fill="#1a1a1a"/>
@@ -954,12 +1248,12 @@
           </svg>
         </div>
         <h3>Dynamic Island</h3>
-        <p>A floating pill at the top of your screen with an animated crab. Compact when idle, expands on click to reveal all sessions.</p>
+        <p>A floating pill near your notch with an animated crab. Compact when idle, expands on click to reveal all sessions.</p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon green">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34c759" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2ed573" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
         </div>
         <h3>Ambient Glow</h3>
         <p>The island glows green while working, pulses orange when a session needs input, and flashes pink on errors.</p>
@@ -967,23 +1261,42 @@
 
       <div class="feature-card">
         <div class="feature-icon red">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff3b3b" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff4757" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </div>
         <h3>Sound Alerts</h3>
-        <p>Hear a sound when any Claude session needs your input or permission. The Dynamic Island highlights which session needs attention.</p>
+        <p>Hear a sound when any session needs your input or permission. Never miss a prompt while multitasking.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon purple">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="feature-badge">New</div>
+        <h3>Inline Permissions</h3>
+        <p>Approve or deny tool permissions directly from the island widget. Allow, Deny, or Always Allow with a single click.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon cyan">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#67e8f9" stroke-width="2" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <div class="feature-badge">New</div>
+        <h3>Code Preview</h3>
+        <p>See a scrollable, syntax-highlighted preview of file changes before approving write permissions.</p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon blue">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b7fff" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f8aff" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         </div>
-        <h3>Tmux Navigation</h3>
-        <p>Click any session to instantly focus its tmux pane. Selects the right window, pane, and activates your terminal.</p>
+        <div class="feature-badge">New</div>
+        <h3>Click-to-Focus</h3>
+        <p>Click any session to focus its terminal. Supports tmux panes, Ghostty, iTerm2, Terminal.app, and more.</p>
       </div>
 
       <div class="feature-card">
         <div class="feature-icon yellow">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffcc33" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffc048" stroke-width="2" stroke-linecap="round"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9"/></svg>
         </div>
         <h3>Unique Crab Names</h3>
         <p>Each session is deterministically assigned a charming crab name like Pinchy, Clawdia, or Captain Claw.</p>
@@ -991,7 +1304,15 @@
 
       <div class="feature-card">
         <div class="feature-icon pink">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ff3b82" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff6b9d" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4-3-9s1.34-9 3-9"/></svg>
+        </div>
+        <h3>Stale Session Cleanup</h3>
+        <p>Automatically detects and removes dead sessions when a Claude process crashes without firing a session end event.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon green">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2ed573" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
         <h3>Zero Config</h3>
         <p>One command installs everything: compiles the Swift app, copies hooks, and configures Claude Code settings.</p>
@@ -1000,111 +1321,110 @@
   </div>
 </section>
 
+<div class="section-divider"></div>
+
 <!-- CRAB STATES -->
 <section id="states" class="states-section">
   <div class="container">
-    <div class="section-label">Crab States</div>
-    <h2 class="section-title">Meet the moods</h2>
-    <p class="section-desc">Each crab visually reflects what its Claude session is doing right now.</p>
+    <div class="section-label reveal">Crab States</div>
+    <h2 class="section-title reveal">Meet the moods</h2>
+    <p class="section-desc reveal">Each crab visually reflects what its Claude session is doing right now.</p>
 
     <div class="states-grid">
       <!-- Working -->
-      <div class="state-card">
+      <div class="state-card reveal reveal-delay-1">
         <div class="state-crab">
-          <svg class="crab-svg crab-working" width="64" height="64" viewBox="0 0 64 64">
+          <svg class="crab-svg crab-working" width="56" height="56" viewBox="0 0 64 64">
             <g class="crab-legs">
-              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="15" y1="30" x2="2" y2="28" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="49" y1="30" x2="62" y2="28" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="15" y1="30" x2="2" y2="28" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="49" y1="30" x2="62" y2="28" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
             </g>
-            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff7033"/>
-            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff7033"/>
-            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff7033"/>
-            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e6601a"/>
-            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
-            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff7033" stroke-width="2.5" stroke-linecap="round"/>
+            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff6b2b"/>
+            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff6b2b"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff6b2b"/>
+            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#e65a1a"/>
+            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
             <circle cx="21" cy="46" r="4" fill="white"/>
             <circle cx="43" cy="46" r="4" fill="white"/>
             <g class="crab-pupils"><circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/><circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/></g>
-            <path d="M29,25 Q32,22 35,25" stroke="#e6601a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-            <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffcc33" opacity="0.3"/>
-            <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffcc33" opacity="0.3"/>
-            <circle class="crab-sparkle" cx="50" cy="54" r="1.5" fill="#ffcc33" opacity="0.3"/>
+            <circle class="crab-sparkle" cx="52" cy="48" r="2" fill="#ffc048" opacity="0.3"/>
+            <circle class="crab-sparkle" cx="56" cy="40" r="1.5" fill="#ffc048" opacity="0.3"/>
+            <circle class="crab-sparkle" cx="50" cy="54" r="1.5" fill="#ffc048" opacity="0.3"/>
           </svg>
         </div>
         <h3 style="color:var(--accent)">Working</h3>
-        <p>Orange crab with wiggling legs and sparkles. Claude is processing.</p>
+        <p>Wiggling legs and sparkles. Claude is processing.</p>
       </div>
 
       <!-- Needs Input -->
-      <div class="state-card">
+      <div class="state-card reveal reveal-delay-2">
         <div class="state-crab">
-          <svg class="crab-svg crab-input" width="64" height="64" viewBox="0 0 64 64">
+          <svg class="crab-svg crab-input" width="56" height="56" viewBox="0 0 64 64">
             <g>
-              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="15" y1="30" x2="2" y2="28" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="49" y1="30" x2="62" y2="28" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff4757" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff4757" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff4757" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff4757" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="15" y1="30" x2="2" y2="28" stroke="#ff4757" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="49" y1="30" x2="62" y2="28" stroke="#ff4757" stroke-width="2.5" stroke-linecap="round"/>
             </g>
-            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff3b3b"/>
-            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff3b3b"/>
-            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff3b3b"/>
+            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff4757"/>
+            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff4757"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff4757"/>
             <ellipse cx="32" cy="32" rx="11" ry="6" fill="#d92a2a"/>
-            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
-            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff3b3b" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff4757" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff4757" stroke-width="2.5" stroke-linecap="round"/>
             <circle cx="21" cy="46" r="4" fill="white"/>
             <circle cx="43" cy="46" r="4" fill="white"/>
             <circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/>
             <circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/>
-            <ellipse cx="32" cy="24" rx="3.5" ry="2.5" fill="rgba(60,10,10,0.8)"/>
-            <circle class="crab-badge" cx="54" cy="52" r="9" fill="#ff3b3b" stroke="white" stroke-width="2"/>
+            <circle class="crab-badge" cx="54" cy="52" r="9" fill="#ff4757" stroke="white" stroke-width="2"/>
             <text x="54" y="56" text-anchor="middle" fill="white" font-size="14" font-weight="bold">!</text>
           </svg>
         </div>
         <h3 style="color:var(--red)">Needs Input</h3>
-        <p>Red bouncing crab with "!" badge. Claude needs your attention.</p>
+        <p>Bouncing with "!" badge. Needs your attention.</p>
       </div>
 
       <!-- Needs Permission -->
-      <div class="state-card">
+      <div class="state-card reveal reveal-delay-3">
         <div class="state-crab">
-          <svg class="crab-svg crab-input" width="64" height="64" viewBox="0 0 64 64">
+          <svg class="crab-svg crab-input" width="56" height="56" viewBox="0 0 64 64">
             <g>
-              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="15" y1="30" x2="2" y2="28" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
-              <line x1="49" y1="30" x2="62" y2="28" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="17" y1="22" x2="5" y2="16" stroke="#ff9f43" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="47" y1="22" x2="59" y2="16" stroke="#ff9f43" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="16" y1="26" x2="3" y2="22" stroke="#ff9f43" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="48" y1="26" x2="61" y2="22" stroke="#ff9f43" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="15" y1="30" x2="2" y2="28" stroke="#ff9f43" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="49" y1="30" x2="62" y2="28" stroke="#ff9f43" stroke-width="2.5" stroke-linecap="round"/>
             </g>
-            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff9500"/>
-            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff9500"/>
-            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff9500"/>
-            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#d98000"/>
-            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
-            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff9500" stroke-width="2.5" stroke-linecap="round"/>
+            <polygon points="16,36 6,42 4,35 10,32 16,33" fill="#ff9f43"/>
+            <polygon points="48,36 58,42 60,35 54,32 48,33" fill="#ff9f43"/>
+            <ellipse cx="32" cy="30" rx="17" ry="11" fill="#ff9f43"/>
+            <ellipse cx="32" cy="32" rx="11" ry="6" fill="#d98a00"/>
+            <line x1="22" y1="36" x2="21" y2="44" stroke="#ff9f43" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="42" y1="36" x2="43" y2="44" stroke="#ff9f43" stroke-width="2.5" stroke-linecap="round"/>
             <circle cx="21" cy="46" r="4" fill="white"/>
             <circle cx="43" cy="46" r="4" fill="white"/>
             <circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/>
             <circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/>
-            <ellipse cx="32" cy="24" rx="3.5" ry="2.5" fill="rgba(60,30,0,0.8)"/>
-            <circle class="crab-badge" cx="54" cy="52" r="9" fill="#ff9500" stroke="white" stroke-width="2"/>
+            <circle class="crab-badge" cx="54" cy="52" r="9" fill="#ff9f43" stroke="white" stroke-width="2"/>
             <text x="54" y="56" text-anchor="middle" fill="white" font-size="14" font-weight="bold">!</text>
           </svg>
         </div>
-        <h3 style="color:var(--orange)">Needs Permission</h3>
-        <p>Orange bouncing crab with "!" badge. A tool needs your approval.</p>
+        <h3 style="color:var(--orange)">Permission</h3>
+        <p>Wants tool approval. Allow or deny inline.</p>
       </div>
 
       <!-- Idle -->
-      <div class="state-card">
+      <div class="state-card reveal reveal-delay-4">
         <div class="state-crab">
-          <svg class="crab-svg crab-idle" width="64" height="64" viewBox="0 0 64 64">
+          <svg class="crab-svg crab-idle" width="56" height="56" viewBox="0 0 64 64">
             <g>
               <line x1="17" y1="22" x2="5" y2="16" stroke="#7a7a88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
               <line x1="47" y1="22" x2="59" y2="16" stroke="#7a7a88" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
@@ -1126,13 +1446,13 @@
           </svg>
         </div>
         <h3 style="color:var(--text-dim)">Idle</h3>
-        <p>Gray crab with closed eyes and floating "z"s. Waiting for a prompt.</p>
+        <p>Closed eyes and "zzz". Waiting for a prompt.</p>
       </div>
 
       <!-- Error -->
-      <div class="state-card">
+      <div class="state-card reveal reveal-delay-5">
         <div class="state-crab">
-          <svg class="crab-svg" width="64" height="64" viewBox="0 0 64 64">
+          <svg class="crab-svg" width="56" height="56" viewBox="0 0 64 64">
             <g>
               <line x1="17" y1="22" x2="5" y2="16" stroke="#d9267a" stroke-width="2.5" stroke-linecap="round"/>
               <line x1="47" y1="22" x2="59" y2="16" stroke="#d9267a" stroke-width="2.5" stroke-linecap="round"/>
@@ -1151,27 +1471,70 @@
             <circle cx="43" cy="46" r="4" fill="white"/>
             <circle cx="21.5" cy="46" r="1.8" fill="#1a1a1a"/>
             <circle cx="43.5" cy="46" r="1.8" fill="#1a1a1a"/>
-            <ellipse cx="32" cy="24" rx="3.5" ry="2.5" fill="rgba(60,10,10,0.8)"/>
             <circle cx="54" cy="52" r="9" fill="#d9267a" stroke="white" stroke-width="2"/>
             <text x="54" y="56" text-anchor="middle" fill="white" font-size="14" font-weight="bold">!</text>
           </svg>
         </div>
         <h3 style="color:var(--pink)">Error</h3>
-        <p>Pink crab with an alert badge. An API error occurred.</p>
+        <p>Pink crab with alert. An API error occurred.</p>
       </div>
     </div>
   </div>
 </section>
 
+<div class="section-divider"></div>
+
+<!-- TERMINAL SUPPORT -->
+<section class="terminals-section">
+  <div class="container">
+    <div class="section-label reveal">Terminal Support</div>
+    <h2 class="section-title reveal">Click any session, focus any terminal</h2>
+    <p class="section-desc reveal" style="margin:0 auto">Click a session in the island to instantly jump to its terminal. Detects your terminal app automatically by walking the process tree.</p>
+
+    <div class="terminals-grid reveal">
+      <div class="terminal-card">
+        <span class="t-name">tmux</span>
+        <span class="t-badge">tmux</span>
+      </div>
+      <div class="terminal-card">
+        <span class="t-name">Ghostty</span>
+        <span class="t-badge">ghostty</span>
+      </div>
+      <div class="terminal-card">
+        <span class="t-name">iTerm2</span>
+        <span class="t-badge">iterm</span>
+      </div>
+      <div class="terminal-card">
+        <span class="t-name">Terminal.app</span>
+        <span class="t-badge">term</span>
+      </div>
+      <div class="terminal-card">
+        <span class="t-name">WezTerm</span>
+        <span class="t-badge">wez</span>
+      </div>
+      <div class="terminal-card">
+        <span class="t-name">Alacritty</span>
+        <span class="t-badge">alac</span>
+      </div>
+      <div class="terminal-card">
+        <span class="t-name">kitty</span>
+        <span class="t-badge">kitty</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
 <!-- HOW IT WORKS -->
 <section id="how" class="how-section">
   <div class="container">
-    <div class="section-label">Architecture</div>
-    <h2 class="section-title">How it works</h2>
-    <p class="section-desc">Claude Observer uses Claude Code's hook system to track session lifecycle events in real time.</p>
+    <div class="section-label reveal">Architecture</div>
+    <h2 class="section-title reveal">How it works</h2>
+    <p class="section-desc reveal">Claude Observer uses Claude Code's hook system to track session lifecycle events in real time.</p>
 
     <div class="how-grid">
-      <div>
+      <div class="how-steps reveal">
         <div class="how-step">
           <div class="how-num">1</div>
           <div>
@@ -1183,59 +1546,48 @@
           <div class="how-num">2</div>
           <div>
             <h4>Python Hook Writes State</h4>
-            <p>The observer hook script receives event data via stdin and atomically writes a JSON file per session to <code>~/.claude-observer/sessions/</code>.</p>
+            <p>The observer hook script receives event data via stdin and atomically writes a JSON file per session to <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);background:rgba(255,107,43,0.08);padding:2px 6px;border-radius:4px">~/.claude-observer/sessions/</code>.</p>
           </div>
         </div>
         <div class="how-step">
           <div class="how-num">3</div>
           <div>
             <h4>Dynamic Island Polls</h4>
-            <p>The floating panel polls the sessions directory every 2 seconds, reads the JSON files, and updates the island display with animated crabs and glow effects.</p>
+            <p>The floating panel polls the sessions directory every 2 seconds, reads JSON files, and updates the island with animated crabs and glow effects.</p>
           </div>
         </div>
         <div class="how-step">
           <div class="how-num">4</div>
           <div>
-            <h4>Alerts & Navigation</h4>
-            <p>When a session needs attention, a sound plays and the Dynamic Island highlights it. Clicking a session in the expanded island focuses its tmux pane.</p>
+            <h4>Interact & Navigate</h4>
+            <p>Respond to permission requests inline, hear sound alerts, and click sessions to jump to their terminal. Dead sessions are auto-cleaned.</p>
           </div>
         </div>
       </div>
 
-      <div class="how-diagram">
+      <div class="how-diagram reveal">
         <div class="flow">
           <div class="flow-node">Claude Code triggers hook event<br><code>SessionStart</code> <code>Stop</code> <code>Notification</code> ...</div>
           <div class="flow-arrow">&#8595;</div>
           <div class="flow-node file-node">Python hook writes JSON<br><code>~/.claude-observer/sessions/{id}.json</code></div>
           <div class="flow-arrow">&#8595;</div>
-          <div class="flow-node app-node">Dynamic island reads &amp; renders<br><code>NSPanel</code> + animated crab + glow effects</div>
+          <div class="flow-node app-node">Dynamic island reads &amp; renders<br><code>NSPanel</code> + animated crabs + glow</div>
         </div>
 
-        <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border)">
-          <div style="font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:12px">Tracked Events</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px">
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">SessionStart</code></div>
-            <div style="color:var(--text-dim)">Creates session file</div>
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">UserPromptSubmit</code></div>
-            <div style="color:var(--text-dim)">Marks as "working"</div>
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">PreToolUse</code></div>
-            <div style="color:var(--text-dim)">Marks as "working"</div>
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">PostToolUse</code></div>
-            <div style="color:var(--text-dim)">Marks as "working"</div>
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">Stop</code></div>
-            <div style="color:var(--text-dim)">Marks as "idle"</div>
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">StopFailure</code></div>
-            <div style="color:var(--text-dim)">Marks as "error"</div>
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">Notification</code></div>
-            <div style="color:var(--text-dim)">Marks as "needs input"</div>
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">PermissionRequest</code></div>
-            <div style="color:var(--text-dim)">Marks as "needs permission"</div>
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">SubagentStart</code></div>
-            <div style="color:var(--text-dim)">Marks as "working"</div>
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">SubagentStop</code></div>
-            <div style="color:var(--text-dim)">Updates activity</div>
-            <div><code style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:rgba(255,112,51,0.08);padding:2px 6px;border-radius:4px">SessionEnd</code></div>
-            <div style="color:var(--text-dim)">Removes session file</div>
+        <div class="events-grid">
+          <div class="events-grid-title">Tracked Events</div>
+          <div class="events-list">
+            <code>SessionStart</code><span class="event-desc">Creates session file</span>
+            <code>UserPromptSubmit</code><span class="event-desc">Marks as "working"</span>
+            <code>PreToolUse</code><span class="event-desc">Marks as "working"</span>
+            <code>PostToolUse</code><span class="event-desc">Marks as "working"</span>
+            <code>Stop</code><span class="event-desc">Marks as "idle"</span>
+            <code>StopFailure</code><span class="event-desc">Marks as "error"</span>
+            <code>Notification</code><span class="event-desc">Marks as "needs input"</span>
+            <code>PermissionRequest</code><span class="event-desc">Shows inline prompt</span>
+            <code>SubagentStart</code><span class="event-desc">Marks as "working"</span>
+            <code>SubagentStop</code><span class="event-desc">Updates activity</span>
+            <code>SessionEnd</code><span class="event-desc">Removes session file</span>
           </div>
         </div>
       </div>
@@ -1243,14 +1595,16 @@
   </div>
 </section>
 
+<div class="section-divider"></div>
+
 <!-- INSTALL -->
 <section id="install" class="install-section">
   <div class="container">
-    <div class="section-label">Getting Started</div>
-    <h2 class="section-title">Install in seconds</h2>
-    <p class="section-desc">Requires macOS 12+, Xcode Command Line Tools, and Python 3.</p>
+    <div class="section-label reveal">Getting Started</div>
+    <h2 class="section-title reveal">Install in seconds</h2>
+    <p class="section-desc reveal">Requires macOS 12+, Xcode Command Line Tools, and Python 3.</p>
 
-    <div class="install-card">
+    <div class="install-card reveal">
       <div class="install-steps">
         <div class="install-step">
           <div class="install-step-num">1</div>
@@ -1279,33 +1633,34 @@
         </div>
       </div>
 
-      <div style="margin-top:32px;padding-top:24px;border-top:1px solid var(--border)">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="install-footer">
+        <div class="install-footer-grid">
           <div>
-            <h4 style="font-size:14px;margin-bottom:6px">Stop</h4>
+            <h4>Stop</h4>
             <pre><span class="cmd">make stop</span></pre>
           </div>
           <div>
-            <h4 style="font-size:14px;margin-bottom:6px">Uninstall</h4>
+            <h4>Uninstall</h4>
             <pre><span class="cmd">make uninstall</span></pre>
           </div>
         </div>
+        <p class="install-tip">
+          Tip: Add the binary to <strong>System Settings &gt; General &gt; Login Items</strong> for auto-start on login.
+        </p>
       </div>
-
-      <p style="font-size:13px;color:var(--text-dim);margin-top:20px">
-        Tip: Add the binary to <strong>System Settings &gt; General &gt; Login Items</strong> for auto-start on login.
-      </p>
     </div>
   </div>
 </section>
 
+<div class="section-divider"></div>
+
 <!-- CRAB NAMES -->
 <section class="names-section">
-  <div class="container" style="text-align:center">
-    <div class="section-label">35 Unique Names</div>
-    <h2 class="section-title">Meet the crew</h2>
-    <p class="section-desc" style="margin:0 auto 0">Each Claude session gets a deterministic crab name based on its session ID.</p>
-    <div class="names-cloud">
+  <div class="container">
+    <div class="section-label reveal">35 Unique Names</div>
+    <h2 class="section-title reveal">Meet the crew</h2>
+    <p class="section-desc reveal" style="margin:0 auto 0">Each session gets a deterministic crab name based on its session ID.</p>
+    <div class="names-cloud reveal">
       <span class="name-tag">Pinchy</span>
       <span class="name-tag">Snippy</span>
       <span class="name-tag">Clawdia</span>
@@ -1348,7 +1703,7 @@
 <!-- FOOTER -->
 <footer>
   <div class="container">
-    <p style="margin-bottom:8px">
+    <p style="margin-bottom:10px">
       <svg class="crab-svg crab-idle" width="18" height="18" viewBox="0 0 64 64" style="vertical-align:middle">
         <ellipse cx="32" cy="30" rx="17" ry="11" fill="#7a7a88" opacity="0.4"/>
         <path d="M17,46 A4,4 0 0,1 25,46" stroke="#5a5a68" stroke-width="2" fill="none" opacity="0.6"/>
@@ -1357,11 +1712,11 @@
       </svg>
     </p>
     <p>Claude Observer &middot; <a href="https://github.com/svenliebig/claude-observer">GitHub</a></p>
-    <p style="margin-top:4px;font-size:12px;color:rgba(139,143,163,0.5)">macOS 12+ &middot; Swift &middot; Python 3</p>
+    <p class="footer-tech">macOS 12+ &middot; Swift &middot; Python 3 &middot; Zero Dependencies</p>
   </div>
 </footer>
 
-<!-- Smooth scroll -->
+<!-- Smooth scroll + reveal animations -->
 <script>
 document.querySelectorAll('a[href^="#"]').forEach(a => {
   a.addEventListener('click', e => {
@@ -1370,6 +1725,16 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 });
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 </script>
 
 </body>
