@@ -32,6 +32,40 @@ event = data.get("hook_event_name", "unknown")
 notification_type = data.get("notification_type", "")
 tmux_pane = os.environ.get("TMUX_PANE", "")
 
+KNOWN_TERMINALS = {
+    "ghostty": "Ghostty",
+    "terminal": "Terminal",
+    "iterm2": "iTerm2",
+    "wezterm-gui": "WezTerm",
+    "alacritty": "Alacritty",
+    "kitty": "kitty",
+}
+
+
+def detect_terminal_app():
+    """Walk the process tree from our parent to find a known terminal app."""
+    try:
+        pid = os.getppid()
+        for _ in range(20):
+            if pid <= 1:
+                break
+            comm = os.popen(f"ps -p {pid} -o comm= 2>/dev/null").read().strip()
+            ppid_str = os.popen(f"ps -p {pid} -o ppid= 2>/dev/null").read().strip()
+            if not comm or not ppid_str:
+                break
+            # Check the basename of the executable against known terminals
+            basename = os.path.basename(comm).lower()
+            for key, name in KNOWN_TERMINALS.items():
+                if key in basename:
+                    return name
+            pid = int(ppid_str)
+    except Exception:
+        pass
+    return ""
+
+
+terminal_app = detect_terminal_app()
+
 session_file = os.path.join(STATE_DIR, f"{session_id}.json")
 timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -90,9 +124,12 @@ def ensure_session():
             "started_at": timestamp,
             "last_activity": timestamp,
             "tmux_pane": tmux_pane,
+            "terminal_app": terminal_app,
         }
     if tmux_pane and not session.get("tmux_pane"):
         session["tmux_pane"] = tmux_pane
+    if terminal_app and not session.get("terminal_app"):
+        session["terminal_app"] = terminal_app
     return session
 
 
@@ -106,6 +143,7 @@ if event == "SessionStart":
         "started_at": timestamp,
         "last_activity": timestamp,
         "tmux_pane": tmux_pane,
+        "terminal_app": terminal_app,
     }
     write_session(session)
 

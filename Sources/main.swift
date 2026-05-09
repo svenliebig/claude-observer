@@ -54,6 +54,7 @@ struct CrabSession: Codable {
     var lastActivity: String
     var notificationType: String?
     var tmuxPane: String?
+    var terminalApp: String?
     var permissionRequest: PermissionRequestInfo?
 
     enum CodingKeys: String, CodingKey {
@@ -62,7 +63,29 @@ struct CrabSession: Codable {
         case lastActivity = "last_activity"
         case notificationType = "notification_type"
         case tmuxPane = "tmux_pane"
+        case terminalApp = "terminal_app"
         case permissionRequest = "permission_request"
+    }
+
+    var isClickable: Bool {
+        let hasTmux = tmuxPane != nil && !(tmuxPane?.isEmpty ?? true)
+        let hasTerminal = terminalApp != nil && !(terminalApp?.isEmpty ?? true)
+        return hasTmux || hasTerminal
+    }
+
+    var badgeLabel: String {
+        let hasTmux = tmuxPane != nil && !(tmuxPane?.isEmpty ?? true)
+        if hasTmux { return "tmux" }
+        guard let app = terminalApp, !app.isEmpty else { return "" }
+        switch app {
+        case "Ghostty": return "ghostty"
+        case "Terminal": return "term"
+        case "iTerm2": return "iterm"
+        case "WezTerm": return "wez"
+        case "Alacritty": return "alac"
+        case "kitty": return "kitty"
+        default: return app.lowercased().prefix(6).description
+        }
     }
 }
 
@@ -359,8 +382,8 @@ class IslandView: NSView {
     static let compactHeight: CGFloat = 36
     static let sessionRowHeight: CGFloat = 52
     static let permissionRowHeight: CGFloat = 85
-    static let expandedWidth: CGFloat = 400
-    static let compactWidthWithSessions: CGFloat = 240
+    static let expandedWidth: CGFloat = 440
+    static let compactWidthWithSessions: CGFloat = 270
     static let compactWidthEmpty: CGFloat = 160
 
     override var isFlipped: Bool { true }
@@ -617,11 +640,10 @@ class IslandView: NSView {
     private func drawSessionRow(_ session: CrabSession, at y: CGFloat, index: Int) {
         let padding: CGFloat = 14
         let crabState = stateFor(session.status)
-        let hasTmux = session.tmuxPane != nil && !(session.tmuxPane?.isEmpty ?? true)
         let rh = rowHeight(for: session)
 
         // Hover highlight
-        if hoveredRowIndex == index && hasTmux {
+        if hoveredRowIndex == index && session.isClickable {
             let rowRect = NSRect(x: 6, y: y + 1, width: bounds.width - 12, height: rh - 2)
             let hoverPath = NSBezierPath(roundedRect: rowRect, xRadius: 8, yRadius: 8)
             NSColor(white: 1, alpha: 0.07).setFill()
@@ -649,7 +671,31 @@ class IslandView: NSView {
         ]
         let nameStr = NSAttributedString(string: session.name, attributes: nameAttrs)
         nameStr.draw(at: NSPoint(x: textX, y: y + 8))
-        let nameWidth = nameStr.size().width
+        var afterNameX = textX + nameStr.size().width + 6
+
+        // Terminal badge
+        let badge = session.badgeLabel
+        if !badge.isEmpty {
+            let badgeAttrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .medium),
+                .foregroundColor: NSColor(white: 1, alpha: 0.55)
+            ]
+            let badgeStr = NSAttributedString(string: badge, attributes: badgeAttrs)
+            let badgeSize = badgeStr.size()
+            let badgePadH: CGFloat = 5
+            let badgePadV: CGFloat = 1.5
+            let badgeRect = NSRect(
+                x: afterNameX,
+                y: y + 9,
+                width: badgeSize.width + badgePadH * 2,
+                height: badgeSize.height + badgePadV * 2
+            )
+            let badgePath = NSBezierPath(roundedRect: badgeRect, xRadius: 4, yRadius: 4)
+            NSColor(white: 1, alpha: 0.1).setFill()
+            badgePath.fill()
+            badgeStr.draw(at: NSPoint(x: afterNameX + badgePadH, y: y + 9 + badgePadV))
+            afterNameX += badgeRect.width + 6
+        }
 
         // Directory name
         let dirName = (session.cwd as NSString).lastPathComponent
@@ -658,7 +704,7 @@ class IslandView: NSView {
             .foregroundColor: NSColor(white: 1, alpha: 0.35)
         ]
         let dirStr = NSAttributedString(string: dirName, attributes: dirAttrs)
-        dirStr.draw(at: NSPoint(x: textX + nameWidth + 8, y: y + 9))
+        dirStr.draw(at: NSPoint(x: afterNameX, y: y + 9))
 
         // Elapsed time (far right)
         let elapsed = elapsedString(since: session.startedAt)
@@ -810,8 +856,13 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         islandView.autoresizingMask = [.width, .height]
         islandView.onToggle = { [weak self] in self?.toggle() }
         islandView.onSessionClick = { [weak self] session in
-            guard let tmux = session.tmuxPane, !tmux.isEmpty else { return }
-            self?.focusTmuxPane(tmux)
+            guard session.isClickable else { return }
+            let hasTmux = session.tmuxPane != nil && !(session.tmuxPane?.isEmpty ?? true)
+            if hasTmux {
+                self?.focusTmuxPane(session.tmuxPane!, terminalApp: session.terminalApp)
+            } else if let app = session.terminalApp, !app.isEmpty {
+                self?.focusTerminalApp(app, pid: session.pid)
+            }
         }
         islandView.onPermissionResponse = { [weak self] session, decision in
             self?.respondToPermission(session: session, decision: decision)
@@ -1029,7 +1080,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Focus Session
 
-    private func focusTmuxPane(_ paneId: String) {
+    private func focusTmuxPane(_ paneId: String, terminalApp: String? = nil) {
         let selectWindow = Process()
         selectWindow.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         selectWindow.arguments = ["tmux", "select-window", "-t", paneId]
@@ -1054,9 +1105,36 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         try? switchClient.run()
         switchClient.waitUntilExit()
 
+        // Activate the terminal app hosting the tmux client
+        let appName = (terminalApp != nil && !terminalApp!.isEmpty) ? terminalApp! : "Ghostty"
+        activateApp(appName)
+    }
+
+    private func focusTerminalApp(_ appName: String, pid: Int?) {
+        if let pid = pid {
+            // Try to bring the window containing this PID to front via AppleScript
+            let script = """
+            tell application "System Events"
+                set frontmost of (first process whose unix id is \(pid)) to true
+            end tell
+            """
+            let activate = Process()
+            activate.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            activate.arguments = ["-e", script]
+            activate.standardOutput = FileHandle.nullDevice
+            activate.standardError = FileHandle.nullDevice
+            try? activate.run()
+            activate.waitUntilExit()
+            // If the PID-based approach didn't work (pid is the claude process, not the terminal),
+            // fall back to activating the app by name
+        }
+        activateApp(appName)
+    }
+
+    private func activateApp(_ appName: String) {
         let activate = Process()
         activate.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        activate.arguments = ["-e", "tell application \"Ghostty\" to activate"]
+        activate.arguments = ["-e", "tell application \"\(appName)\" to activate"]
         activate.standardOutput = FileHandle.nullDevice
         activate.standardError = FileHandle.nullDevice
         try? activate.run()
