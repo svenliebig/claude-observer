@@ -3,12 +3,109 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Claude Observer - A Dynamic Island for Your Claude Code Sessions</title>
-  <meta name="description" content="A macOS dynamic island app that shows your running Claude Code sessions as cute little crabs.">
+  <title>Claude Observer - macOS Dynamic Island for Claude Code Sessions</title>
+  <meta name="description" content="Monitor all your Claude Code sessions from a macOS Dynamic Island. Each session gets a cute animated crab showing real-time status: working, idle, needs input, or error. Supports tmux, Ghostty, iTerm2, and more.">
+  <meta name="keywords" content="Claude Code, macOS, Dynamic Island, session monitor, developer tools, Claude AI, status bar app, terminal, tmux, Ghostty, iTerm2">
+  <meta name="author" content="Sven Liebig">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#08090f">
+  <link rel="canonical" href="https://svenliebig.github.io/claude-observer/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Claude Observer - macOS Dynamic Island for Claude Code">
+  <meta property="og:description" content="A floating Dynamic Island for macOS that monitors your Claude Code sessions as cute animated crabs. See working, idle, permission, and error states at a glance.">
+  <meta property="og:url" content="https://svenliebig.github.io/claude-observer/">
+  <meta property="og:site_name" content="Claude Observer">
+  <meta property="og:locale" content="en_US">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Claude Observer - macOS Dynamic Island for Claude Code">
+  <meta name="twitter:description" content="Monitor all your Claude Code sessions from a floating Dynamic Island. Each session gets a cute animated crab with real-time status.">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <script defer data-domain="svenliebig.github.io/claude-observer" src="https://plausible.svenliebig.com/js/plausible.js"></script>
+  <script defer data-domain="svenliebig.github.io/claude-observer" src="https://plausible.svenliebig.com/js/script.outbound-links.tagged-events.js"></script>
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Claude Observer",
+    "description": "A macOS Dynamic Island app that monitors your running Claude Code sessions as cute animated crabs with real-time status indicators.",
+    "url": "https://svenliebig.github.io/claude-observer/",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "macOS 12+",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "Sven Liebig",
+      "url": "https://github.com/svenliebig"
+    },
+    "softwareRequirements": "macOS 12+, Xcode Command Line Tools, Python 3",
+    "downloadUrl": "https://github.com/svenliebig/claude-observer",
+    "installUrl": "https://github.com/svenliebig/claude-observer#install",
+    "featureList": [
+      "Dynamic Island floating panel",
+      "Animated crab status indicators",
+      "Sound alerts for input needed",
+      "Inline permission management",
+      "Code preview for file changes",
+      "Click-to-focus terminal sessions",
+      "Supports tmux, Ghostty, iTerm2, Terminal.app, WezTerm, Alacritty, kitty",
+      "Unique crab names per session",
+      "Stale session auto-cleanup",
+      "Zero configuration setup"
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is Claude Observer?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Claude Observer is a free macOS Dynamic Island app that monitors your running Claude Code sessions. Each session is displayed as a cute animated crab with real-time status indicators showing whether Claude is working, idle, needs input, or has encountered an error."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I install Claude Observer?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Clone the repository from GitHub, then run 'make install'. This compiles the Swift app, installs the hook script, and configures Claude Code hooks automatically. Run with 'make run'."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Which terminals does Claude Observer support?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Claude Observer supports tmux, Ghostty, iTerm2, Terminal.app, WezTerm, Alacritty, and kitty. It detects your terminal app automatically by walking the process tree."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What are the system requirements?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Claude Observer requires macOS 12 or later, Xcode Command Line Tools, and Python 3 (which ships with macOS and Xcode CLT)."
+        }
+      }
+    ]
+  }
+  </script>
   <style>
     :root {
       --bg: #08090f;
@@ -984,10 +1081,11 @@
 <body>
 
 <!-- NAV -->
-<nav>
+<header>
+<nav aria-label="Main navigation">
   <div class="container">
     <a class="nav-brand" href="#">
-      <svg class="nav-crab crab-svg crab-working" width="22" height="22" viewBox="0 0 64 64">
+      <svg class="nav-crab crab-svg crab-working" width="22" height="22" viewBox="0 0 64 64" role="img" aria-label="Claude Observer crab logo">
         <g class="crab-legs">
           <line x1="17" y1="22" x2="5" y2="16" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
           <line x1="47" y1="22" x2="59" y2="16" stroke="#ff6b2b" stroke-width="2.5" stroke-linecap="round"/>
@@ -1021,19 +1119,21 @@
     </div>
   </div>
 </nav>
+</header>
 
+<main>
 <!-- HERO -->
-<section class="hero">
+<section class="hero" aria-label="Introduction">
   <div class="container">
     <div class="hero-badge">
       <div class="badge-dot"></div>
       <span>macOS</span> Dynamic Island for Claude Code
     </div>
-    <h1>Your Claude sessions<br>as cute little <span class="accent">crabs</span></h1>
-    <p>A floating dynamic island for macOS that gives each Claude Code session a unique crab identity and shows what they're all up to at a glance.</p>
+    <h1>Monitor your Claude Code sessions<br>as cute little <span class="accent">crabs</span></h1>
+    <p>A floating Dynamic Island for macOS that gives each Claude Code session a unique crab identity. See working, idle, and permission states at a glance across all your terminals.</p>
     <div class="hero-buttons">
       <a class="hero-cta" href="#install">Get Started</a>
-      <a class="hero-secondary" href="https://github.com/svenliebig/claude-observer">View on GitHub</a>
+      <a class="hero-secondary" href="https://github.com/svenliebig/claude-observer" rel="noopener">View on GitHub</a>
     </div>
 
     <!-- Dynamic Island mockup -->
@@ -1234,8 +1334,8 @@
 <section id="features">
   <div class="container">
     <div class="section-label reveal">Features</div>
-    <h2 class="section-title reveal">Everything at a glance</h2>
-    <p class="section-desc reveal">Keep track of all your parallel Claude Code sessions without switching between terminal windows.</p>
+    <h2 class="section-title reveal">All your Claude Code sessions at a glance</h2>
+    <p class="section-desc reveal">Keep track of all your parallel Claude Code sessions without switching between terminal windows. Real-time status, sound alerts, and inline permissions.</p>
 
     <div class="features-grid reveal">
       <div class="feature-card">
@@ -1325,7 +1425,7 @@
 <div class="section-divider"></div>
 
 <!-- CRAB STATES -->
-<section id="states" class="states-section">
+<section id="states" class="states-section" aria-label="Crab session states">
   <div class="container">
     <div class="section-label reveal">Crab States</div>
     <h2 class="section-title reveal">Meet the moods</h2>
@@ -1486,7 +1586,7 @@
 <div class="section-divider"></div>
 
 <!-- TERMINAL SUPPORT -->
-<section class="terminals-section">
+<section id="terminals" class="terminals-section" aria-label="Supported terminals">
   <div class="container">
     <div class="section-label reveal">Terminal Support</div>
     <h2 class="section-title reveal">Click any session, focus any terminal</h2>
@@ -1531,8 +1631,8 @@
 <section id="how" class="how-section">
   <div class="container">
     <div class="section-label reveal">Architecture</div>
-    <h2 class="section-title reveal">How it works</h2>
-    <p class="section-desc reveal">Claude Observer uses Claude Code's hook system to track session lifecycle events in real time.</p>
+    <h2 class="section-title reveal">How Claude Observer works</h2>
+    <p class="section-desc reveal">Claude Observer uses Claude Code's hook system to track session lifecycle events in real time via lightweight JSON files.</p>
 
     <div class="how-grid">
       <div class="how-steps reveal">
@@ -1602,8 +1702,8 @@
 <section id="install" class="install-section">
   <div class="container">
     <div class="section-label reveal">Getting Started</div>
-    <h2 class="section-title reveal">Install in seconds</h2>
-    <p class="section-desc reveal">Requires macOS 12+, Xcode Command Line Tools, and Python 3.</p>
+    <h2 class="section-title reveal">Install Claude Observer in seconds</h2>
+    <p class="section-desc reveal">Requires macOS 12+, Xcode Command Line Tools, and Python 3. One command does everything.</p>
 
     <div class="install-card reveal">
       <div class="install-steps">
@@ -1656,7 +1756,7 @@
 <div class="section-divider"></div>
 
 <!-- CRAB NAMES -->
-<section class="names-section">
+<section id="names" class="names-section" aria-label="Crab names">
   <div class="container">
     <div class="section-label reveal">35 Unique Names</div>
     <h2 class="section-title reveal">Meet the crew</h2>
@@ -1701,6 +1801,8 @@
   </div>
 </section>
 
+</main>
+
 <!-- FOOTER -->
 <footer>
   <div class="container">
@@ -1712,8 +1814,8 @@
         <text class="crab-zzz" x="46" y="40" fill="#5b5baa" font-size="14" font-weight="800" opacity="0.7">z</text>
       </svg>
     </p>
-    <p>Claude Observer &middot; <a href="https://github.com/svenliebig/claude-observer">GitHub</a></p>
-    <p class="footer-tech">macOS 12+ &middot; Swift &middot; Python 3 &middot; Zero Dependencies</p>
+    <p>Claude Observer &middot; Open Source macOS Session Monitor for Claude Code &middot; <a href="https://github.com/svenliebig/claude-observer" rel="noopener">GitHub</a></p>
+    <p class="footer-tech">macOS 12+ &middot; Swift &middot; Python 3 &middot; Zero Dependencies &middot; Free &amp; Open Source</p>
   </div>
 </footer>
 
