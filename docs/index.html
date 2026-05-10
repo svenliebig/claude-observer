@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Claude Observer - macOS Dynamic Island for Claude Code Sessions</title>
-  <meta name="description" content="Monitor all your Claude Code sessions from a macOS Dynamic Island. Each session gets a cute animated crab showing real-time status: working, idle, needs input, or error. Supports tmux, Ghostty, iTerm2, and more.">
-  <meta name="keywords" content="Claude Code, macOS, Dynamic Island, session monitor, developer tools, Claude AI, status bar app, terminal, tmux, Ghostty, iTerm2">
+  <meta name="description" content="Monitor all your Claude Code sessions from a macOS Dynamic Island or a web dashboard on your phone. Each session gets a cute animated crab showing real-time status: working, idle, needs input, or error. Approve permissions remotely, with expandable code previews.">
+  <meta name="keywords" content="Claude Code, macOS, Dynamic Island, session monitor, developer tools, Claude AI, status bar app, terminal, tmux, Ghostty, iTerm2, web dashboard, PWA, remote permissions">
   <meta name="author" content="Sven Liebig">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#08090f">
@@ -14,7 +14,7 @@
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Claude Observer - macOS Dynamic Island for Claude Code">
-  <meta property="og:description" content="A floating Dynamic Island for macOS that monitors your Claude Code sessions as cute animated crabs. See working, idle, permission, and error states at a glance.">
+  <meta property="og:description" content="A floating Dynamic Island for macOS that monitors your Claude Code sessions as cute animated crabs. Approve permissions from your phone via built-in web dashboard.">
   <meta property="og:url" content="https://svenliebig.github.io/claude-observer/">
   <meta property="og:site_name" content="Claude Observer">
   <meta property="og:locale" content="en_US">
@@ -22,7 +22,7 @@
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Claude Observer - macOS Dynamic Island for Claude Code">
-  <meta name="twitter:description" content="Monitor all your Claude Code sessions from a floating Dynamic Island. Each session gets a cute animated crab with real-time status.">
+  <meta name="twitter:description" content="Monitor all your Claude Code sessions from a floating Dynamic Island or your phone. Animated crabs, inline permissions, expandable code preview, and a web dashboard.">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -58,9 +58,12 @@
       "Sound alerts for input needed",
       "Inline permission management",
       "Code preview for file changes",
+      "Expandable content viewer (up to 80 lines)",
+      "Web dashboard with phone support (PWA)",
+      "Remote permission approval via WebSocket",
       "Click-to-focus terminal sessions",
       "Supports tmux, Ghostty, iTerm2, Terminal.app, WezTerm, Alacritty, kitty",
-      "Unique crab names per session",
+      "Persistent crab names per repository",
       "Stale session auto-cleanup",
       "Zero configuration setup"
     ]
@@ -1130,7 +1133,7 @@
       <span>macOS</span> Dynamic Island for Claude Code
     </div>
     <h1>Monitor your Claude Code sessions<br>as cute little <span class="accent">crabs</span></h1>
-    <p>A floating Dynamic Island for macOS that gives each Claude Code session a unique crab identity. See working, idle, and permission states at a glance across all your terminals.</p>
+    <p>A floating Dynamic Island for macOS that gives each Claude Code session a unique crab identity. See working, idle, and permission states at a glance across all your terminals — or from your phone via the built-in web dashboard.</p>
     <div class="hero-buttons">
       <a class="hero-cta" href="#install">Get Started</a>
       <a class="hero-secondary" href="https://github.com/svenliebig/claude-observer" rel="noopener">View on GitHub</a>
@@ -1335,7 +1338,7 @@
   <div class="container">
     <div class="section-label reveal">Features</div>
     <h2 class="section-title reveal">All your Claude Code sessions at a glance</h2>
-    <p class="section-desc reveal">Keep track of all your parallel Claude Code sessions without switching between terminal windows. Real-time status, sound alerts, and inline permissions.</p>
+    <p class="section-desc reveal">Keep track of all your parallel Claude Code sessions without switching between terminal windows. Real-time status, sound alerts, inline permissions, and a web dashboard for your phone.</p>
 
     <div class="features-grid reveal">
       <div class="feature-card">
@@ -1372,7 +1375,6 @@
         <div class="feature-icon purple">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
-        <div class="feature-badge">New</div>
         <h3>Inline Permissions</h3>
         <p>Approve or deny tool permissions directly from the island widget. Allow, Deny, or Always Allow with a single click.</p>
       </div>
@@ -1381,7 +1383,6 @@
         <div class="feature-icon cyan">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#67e8f9" stroke-width="2" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
         </div>
-        <div class="feature-badge">New</div>
         <h3>Code Preview</h3>
         <p>See a scrollable, syntax-highlighted preview of file changes before approving write permissions.</p>
       </div>
@@ -1390,9 +1391,26 @@
         <div class="feature-icon blue">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f8aff" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
         </div>
-        <div class="feature-badge">New</div>
         <h3>Click-to-Focus</h3>
         <p>Click any session to focus its terminal. Supports tmux panes, Ghostty, iTerm2, Terminal.app, and more.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon green">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2ed573" stroke-width="2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+        </div>
+        <div class="feature-badge">New</div>
+        <h3>Web Dashboard</h3>
+        <p>Local web server with real-time updates. Monitor sessions and approve permissions from your phone. Installable as a PWA.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon cyan">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#67e8f9" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        </div>
+        <div class="feature-badge">New</div>
+        <h3>Expandable Content</h3>
+        <p>Expand large permission content to 50% screen width with up to 80 lines visible. Works in both the island and web dashboard.</p>
       </div>
 
       <div class="feature-card">
@@ -1661,7 +1679,7 @@
           <div class="how-num">4</div>
           <div>
             <h4>Interact & Navigate</h4>
-            <p>Respond to permission requests inline, hear sound alerts, and click sessions to jump to their terminal. Dead sessions are auto-cleaned.</p>
+            <p>Respond to permission requests inline, hear sound alerts, click sessions to jump to their terminal, or approve from your phone via the web dashboard. Dead sessions are auto-cleaned.</p>
           </div>
         </div>
       </div>
@@ -1758,9 +1776,9 @@
 <!-- CRAB NAMES -->
 <section id="names" class="names-section" aria-label="Crab names">
   <div class="container">
-    <div class="section-label reveal">35 Unique Names</div>
+    <div class="section-label reveal">50 Unique Names</div>
     <h2 class="section-title reveal">Meet the crew</h2>
-    <p class="section-desc reveal" style="margin:0 auto 0">Each session gets a deterministic crab name based on its session ID.</p>
+    <p class="section-desc reveal" style="margin:0 auto 0">Each repository gets a persistent crab name stored across sessions. The same project always gets the same crab.</p>
     <div class="names-cloud reveal">
       <span class="name-tag">Pinchy</span>
       <span class="name-tag">Snippy</span>
@@ -1797,6 +1815,21 @@
       <span class="name-tag">Cheddar</span>
       <span class="name-tag">Waffles</span>
       <span class="name-tag">Bongo</span>
+      <span class="name-tag">Clementine</span>
+      <span class="name-tag">Puddles</span>
+      <span class="name-tag">Driftwood</span>
+      <span class="name-tag">Starfish</span>
+      <span class="name-tag">Jellybean</span>
+      <span class="name-tag">Anchovy</span>
+      <span class="name-tag">Ripple</span>
+      <span class="name-tag">Barnaby</span>
+      <span class="name-tag">Tempest</span>
+      <span class="name-tag">Breeze</span>
+      <span class="name-tag">Crumble</span>
+      <span class="name-tag">Scooter</span>
+      <span class="name-tag">Peanut</span>
+      <span class="name-tag">Sushi</span>
+      <span class="name-tag">Pretzel</span>
     </div>
   </div>
 </section>

@@ -326,7 +326,7 @@ class WebDashboardServer {
     private let queue = DispatchQueue(label: "web-dashboard")
     private let port: UInt16
     private var lastBroadcast: String = "{\"type\":\"sessions\",\"sessions\":[]}"
-    var onPermissionResponse: ((String, String) -> Void)?
+    var onPermissionResponse: ((String, String, [String: Any]) -> Void)?
 
     init(port: UInt16) {
         self.port = port
@@ -437,7 +437,11 @@ class WebDashboardServer {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let sessionId = json["session_id"] as? String,
               let decision = json["decision"] as? String else { return }
-        DispatchQueue.main.async { self.onPermissionResponse?(sessionId, decision) }
+        var extra: [String: Any] = [:]
+        for (k, v) in json where k != "session_id" && k != "decision" && k != "type" {
+            extra[k] = v
+        }
+        DispatchQueue.main.async { self.onPermissionResponse?(sessionId, decision, extra) }
     }
 
     // MARK: WebSocket
@@ -553,7 +557,11 @@ class WebDashboardServer {
         if type == "permission_response",
            let sessionId = json["session_id"] as? String,
            let decision = json["decision"] as? String {
-            DispatchQueue.main.async { self.onPermissionResponse?(sessionId, decision) }
+            var extra: [String: Any] = [:]
+            for (k, v) in json where k != "session_id" && k != "decision" && k != "type" {
+                extra[k] = v
+            }
+            DispatchQueue.main.async { self.onPermissionResponse?(sessionId, decision, extra) }
         }
     }
 
@@ -571,12 +579,14 @@ struct PermissionRequestInfo: Codable {
     let toolSummary: String
     let toolContent: String?
     let toolCategory: String?
+    let toolOptions: [String]?
 
     enum CodingKeys: String, CodingKey {
         case toolName = "tool_name"
         case toolSummary = "tool_summary"
         case toolContent = "tool_content"
         case toolCategory = "tool_category"
+        case toolOptions = "tool_options"
     }
 }
 
@@ -916,7 +926,8 @@ class IslandView: NSView {
     var expandedContentSessionId: String?
     var onToggle: (() -> Void)?
     var onSessionClick: ((CrabSession) -> Void)?
-    var onPermissionResponse: ((CrabSession, String) -> Void)?
+    var onPermissionResponse: ((CrabSession, String, [String: Any]) -> Void)?
+    var onQuestionCustomInput: ((CrabSession) -> Void)?
     var onContentExpandToggle: (() -> Void)?
 
     static let compactHeight: CGFloat = 36
@@ -1027,6 +1038,25 @@ class IslandView: NSView {
     private static let codeLineNumWidth: CGFloat = 28
     private static let expandToggleHeight: CGFloat = 24
 
+    static func questionDisplayLines(for perm: PermissionRequestInfo) -> [String] {
+        let allLines = perm.toolSummary.components(separatedBy: .newlines)
+        return allLines.map { line in
+            line.count > maxPermissionLineChars
+                ? String(line.prefix(maxPermissionLineChars - 3)) + "..."
+                : line
+        }
+    }
+
+    private static let questionOptionGap: CGFloat = 4
+
+    static func questionRowHeight(for perm: PermissionRequestInfo) -> CGFloat {
+        let textLines = questionDisplayLines(for: perm)
+        let optCount = (perm.toolOptions?.count ?? 0) + 1 // +1 for "Other..."
+        let textH: CGFloat = 30 + CGFloat(textLines.count) * permissionLineHeight + 8
+        let buttonsH = CGFloat(optCount) * (buttonH + questionOptionGap)
+        return textH + buttonsH + 10
+    }
+
     static func permissionDisplayLines(for perm: PermissionRequestInfo) -> [String] {
         let fullText = "\(perm.toolName): \(perm.toolSummary)"
         let allLines = fullText.components(separatedBy: .newlines)
@@ -1089,36 +1119,60 @@ class IslandView: NSView {
             for (i, session) in sorted.enumerated() {
                 let rh = rowHeight(for: session)
                 if point.y >= y && point.y < y + rh {
-                    // Check permission button clicks
+                    // Check permission/question button clicks
                     if session.status == "needs_permission", let perm = session.permissionRequest {
                         let textX: CGFloat = 14 + 16 + 6 + 7 + 8
-                        let isContentExpanded = expandedContentSessionId == session.id
-                        let btnY = y + Self.permissionButtonY(for: perm, expanded: isContentExpanded)
 
-                        // Check expand toggle click
-                        if let content = perm.toolContent, !content.isEmpty, Self.contentIsTruncatable(content) {
-                            let toggleY = y + 48 + Self.codePreviewHeight(for: content, expanded: isContentExpanded) + 4
-                            if point.y >= toggleY && point.y < toggleY + Self.expandToggleHeight {
-                                if expandedContentSessionId == session.id {
-                                    expandedContentSessionId = nil
-                                } else {
-                                    expandedContentSessionId = session.id
-                                    codeScrollOffset = 0
-                                }
-                                onContentExpandToggle?()
-                                return
-                            }
-                        }
-
-                        if point.y >= btnY && point.y < btnY + Self.buttonH {
-                            let decisions = ["allow", "deny", "always_allow"]
-                            var bx = textX
-                            for (bi, spec) in Self.buttonSpecs(for: perm).enumerated() {
-                                if point.x >= bx && point.x < bx + spec.width {
-                                    onPermissionResponse?(session, decisions[bi])
+                        if perm.toolName == "AskUserQuestion" {
+                            // Question option buttons (stacked vertically)
+                            let textLines = Self.questionDisplayLines(for: perm)
+                            let optStartY = y + 30 + CGFloat(textLines.count) * Self.permissionLineHeight + 8
+                            let options = perm.toolOptions ?? []
+                            let optW = bounds.width - textX - 14
+                            for (oi, _) in options.enumerated() {
+                                let optY = optStartY + CGFloat(oi) * (Self.buttonH + Self.questionOptionGap)
+                                if point.y >= optY && point.y < optY + Self.buttonH
+                                    && point.x >= textX && point.x < textX + optW {
+                                    onPermissionResponse?(session, "allow", ["option_index": oi])
                                     return
                                 }
-                                bx += spec.width + Self.buttonGap
+                            }
+                            // "Other..." button
+                            let otherY = optStartY + CGFloat(options.count) * (Self.buttonH + Self.questionOptionGap)
+                            if point.y >= otherY && point.y < otherY + Self.buttonH
+                                && point.x >= textX && point.x < textX + optW {
+                                onQuestionCustomInput?(session)
+                                return
+                            }
+                        } else {
+                            let isContentExpanded = expandedContentSessionId == session.id
+                            let btnY = y + Self.permissionButtonY(for: perm, expanded: isContentExpanded)
+
+                            // Check expand toggle click
+                            if let content = perm.toolContent, !content.isEmpty, Self.contentIsTruncatable(content) {
+                                let toggleY = y + 48 + Self.codePreviewHeight(for: content, expanded: isContentExpanded) + 4
+                                if point.y >= toggleY && point.y < toggleY + Self.expandToggleHeight {
+                                    if expandedContentSessionId == session.id {
+                                        expandedContentSessionId = nil
+                                    } else {
+                                        expandedContentSessionId = session.id
+                                        codeScrollOffset = 0
+                                    }
+                                    onContentExpandToggle?()
+                                    return
+                                }
+                            }
+
+                            if point.y >= btnY && point.y < btnY + Self.buttonH {
+                                let decisions = ["allow", "deny", "always_allow"]
+                                var bx = textX
+                                for (bi, spec) in Self.buttonSpecs(for: perm).enumerated() {
+                                    if point.x >= bx && point.x < bx + spec.width {
+                                        onPermissionResponse?(session, decisions[bi], [:])
+                                        return
+                                    }
+                                    bx += spec.width + Self.buttonGap
+                                }
                             }
                         }
                     }
@@ -1158,6 +1212,9 @@ class IslandView: NSView {
 
     func rowHeight(for session: CrabSession) -> CGFloat {
         if session.status == "needs_permission", let perm = session.permissionRequest {
+            if perm.toolName == "AskUserQuestion" {
+                return Self.questionRowHeight(for: perm)
+            }
             let isContentExpanded = expandedContentSessionId == session.id
             return Self.permissionRowHeight(for: perm, expanded: isContentExpanded)
         }
@@ -1213,6 +1270,9 @@ class IslandView: NSView {
         case "needs_input":
             return (.systemRed, "INPUT", .systemOrange)
         case "needs_permission":
+            if session.permissionRequest?.toolName == "AskUserQuestion" {
+                return (.systemYellow, "QUESTION", .systemYellow)
+            }
             return (.systemOrange, "PERMISSION", .systemOrange)
         case "idle":
             return (NSColor(white: 0.5, alpha: 0.6), "idle", NSColor(white: 1, alpha: 0.4))
@@ -1402,9 +1462,34 @@ class IslandView: NSView {
         let statusWidth = statusStr.size().width
         statusStr.draw(at: NSPoint(x: bounds.width - padding - timeWidth - 8 - statusWidth, y: y + 9))
 
-        // Permission request: tool summary + action buttons
+        // Permission request / question: tool summary + action buttons
         if session.status == "needs_permission", let perm = session.permissionRequest {
-            if let content = perm.toolContent, !content.isEmpty {
+            if perm.toolName == "AskUserQuestion" {
+                // Question display: text + option buttons + "Other..."
+                let lines = Self.questionDisplayLines(for: perm)
+                let summaryAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+                    .foregroundColor: NSColor(white: 1, alpha: 0.7)
+                ]
+                for (i, line) in lines.enumerated() {
+                    NSAttributedString(string: line, attributes: summaryAttrs)
+                        .draw(at: NSPoint(x: textX, y: y + 30 + CGFloat(i) * Self.permissionLineHeight))
+                }
+
+                let optStartY = y + 30 + CGFloat(lines.count) * Self.permissionLineHeight + 8
+                let optW = bounds.width - textX - padding
+                let options = perm.toolOptions ?? []
+                for (oi, opt) in options.enumerated() {
+                    let optY = optStartY + CGFloat(oi) * (Self.buttonH + Self.questionOptionGap)
+                    drawButton(opt, at: NSPoint(x: textX, y: optY),
+                               size: NSSize(width: optW, height: Self.buttonH),
+                               color: .systemBlue)
+                }
+                let otherY = optStartY + CGFloat(options.count) * (Self.buttonH + Self.questionOptionGap)
+                drawButton("Other...", at: NSPoint(x: textX, y: otherY),
+                           size: NSSize(width: optW, height: Self.buttonH),
+                           color: NSColor(white: 0.6, alpha: 1))
+            } else if let content = perm.toolContent, !content.isEmpty {
                 let isContentExpanded = expandedContentSessionId == session.id
                 // Tool header line
                 let headerAttrs: [NSAttributedString.Key: Any] = [
@@ -1450,6 +1535,18 @@ class IslandView: NSView {
                     toggleBg.fill()
                     toggleStr.draw(at: NSPoint(x: textX + 8, y: toggleY + 5))
                 }
+
+                // Permission action buttons
+                let isContentExp = expandedContentSessionId == session.id
+                let btnY = y + Self.permissionButtonY(for: perm, expanded: isContentExp)
+                let colors: [NSColor] = [.systemGreen, .systemRed, .systemBlue]
+                var bx = textX
+                for (bi, spec) in Self.buttonSpecs(for: perm).enumerated() {
+                    drawButton(spec.label, at: NSPoint(x: bx, y: btnY),
+                               size: NSSize(width: spec.width, height: Self.buttonH),
+                               color: colors[bi])
+                    bx += spec.width + Self.buttonGap
+                }
             } else {
                 // Text-only permission display
                 let lines = Self.permissionDisplayLines(for: perm)
@@ -1461,18 +1558,18 @@ class IslandView: NSView {
                     NSAttributedString(string: line, attributes: summaryAttrs)
                         .draw(at: NSPoint(x: textX, y: y + 30 + CGFloat(i) * Self.permissionLineHeight))
                 }
-            }
 
-            // Action buttons
-            let isContentExp = expandedContentSessionId == session.id
-            let btnY = y + Self.permissionButtonY(for: perm, expanded: isContentExp)
-            let colors: [NSColor] = [.systemGreen, .systemRed, .systemBlue]
-            var bx = textX
-            for (bi, spec) in Self.buttonSpecs(for: perm).enumerated() {
-                drawButton(spec.label, at: NSPoint(x: bx, y: btnY),
-                           size: NSSize(width: spec.width, height: Self.buttonH),
-                           color: colors[bi])
-                bx += spec.width + Self.buttonGap
+                // Permission action buttons
+                let isContentExp = expandedContentSessionId == session.id
+                let btnY = y + Self.permissionButtonY(for: perm, expanded: isContentExp)
+                let colors: [NSColor] = [.systemGreen, .systemRed, .systemBlue]
+                var bx = textX
+                for (bi, spec) in Self.buttonSpecs(for: perm).enumerated() {
+                    drawButton(spec.label, at: NSPoint(x: bx, y: btnY),
+                               size: NSSize(width: spec.width, height: Self.buttonH),
+                               color: colors[bi])
+                    bx += spec.width + Self.buttonGap
+                }
             }
         } else {
             // Full path on second line (non-permission rows)
@@ -1735,8 +1832,11 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
                 self?.focusTerminalApp(app, pid: session.pid)
             }
         }
-        islandView.onPermissionResponse = { [weak self] session, decision in
-            self?.respondToPermission(session: session, decision: decision)
+        islandView.onPermissionResponse = { [weak self] session, decision, extra in
+            self?.respondToPermission(session: session, decision: decision, extra: extra)
+        }
+        islandView.onQuestionCustomInput = { [weak self] session in
+            self?.showQuestionInputDialog(for: session)
         }
         islandView.onContentExpandToggle = { [weak self] in
             self?.resizeToFitContent()
@@ -1774,6 +1874,9 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         let w = hasExpandedContent ? max(IslandView.expandedWidth, screen.frame.width * 0.5) : IslandView.expandedWidth
         let totalRowH = sessions.values.reduce(CGFloat(0)) { sum, session in
             if session.status == "needs_permission", let perm = session.permissionRequest {
+                if perm.toolName == "AskUserQuestion" {
+                    return sum + IslandView.questionRowHeight(for: perm)
+                }
                 let isContentExpanded = islandView.expandedContentSessionId == session.id
                 return sum + IslandView.permissionRowHeight(for: perm, expanded: isContentExpanded)
             }
@@ -2032,15 +2135,39 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         try? activate.run()
     }
 
-    // MARK: - Permission Response
+    // MARK: - Question Input Dialog
 
-    private func respondToPermission(session: CrabSession, decision: String) {
-        respondToPermission(sessionId: session.id, decision: decision)
+    private func showQuestionInputDialog(for session: CrabSession) {
+        let alert = NSAlert()
+        alert.messageText = "Enter your response"
+        if let perm = session.permissionRequest {
+            alert.informativeText = perm.toolSummary
+        }
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        input.placeholderString = "Type your answer..."
+        alert.accessoryView = input
+        alert.addButton(withTitle: "Send")
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = input
+        let result = alert.runModal()
+        if result == .alertFirstButtonReturn {
+            let text = input.stringValue
+            if !text.isEmpty {
+                respondToPermission(session: session, decision: "allow", extra: ["custom_answer": text])
+            }
+        }
     }
 
-    private func respondToPermission(sessionId: String, decision: String) {
+    // MARK: - Permission Response
+
+    private func respondToPermission(session: CrabSession, decision: String, extra: [String: Any] = [:]) {
+        respondToPermission(sessionId: session.id, decision: decision, extra: extra)
+    }
+
+    private func respondToPermission(sessionId: String, decision: String, extra: [String: Any] = [:]) {
         let responseFile = kStateDir.appendingPathComponent("\(sessionId).response.json")
-        let response: [String: String] = ["decision": decision]
+        var response: [String: Any] = ["decision": decision]
+        for (k, v) in extra { response[k] = v }
         guard let data = try? JSONSerialization.data(withJSONObject: response) else { return }
         try? data.write(to: responseFile, options: .atomic)
 
@@ -2063,8 +2190,8 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         let settings = ObserverSettings.load()
         guard settings.webDashboardEnabled else { return }
         let server = WebDashboardServer(port: UInt16(settings.webDashboardPort))
-        server.onPermissionResponse = { [weak self] sessionId, decision in
-            self?.respondToPermission(sessionId: sessionId, decision: decision)
+        server.onPermissionResponse = { [weak self] sessionId, decision, extra in
+            self?.respondToPermission(sessionId: sessionId, decision: decision, extra: extra)
         }
         server.start()
         dashboardServer = server

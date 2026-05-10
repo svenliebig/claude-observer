@@ -182,6 +182,11 @@ body {
   box-shadow: 0 0 20px rgba(96, 165, 250, 0.08), inset 0 0 20px rgba(96, 165, 250, 0.03);
 }
 
+.card.question {
+  border-color: rgba(250, 204, 21, 0.35);
+  box-shadow: 0 0 20px rgba(250, 204, 21, 0.08), inset 0 0 20px rgba(250, 204, 21, 0.03);
+}
+
 .permission-section {
   margin-top: 12px;
   padding-top: 12px;
@@ -313,6 +318,47 @@ body {
   opacity: 0.4;
   cursor: default;
   transform: none;
+}
+
+.question-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.question-actions button {
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  padding: 11px 0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+  background: rgba(96, 165, 250, 0.15);
+  color: var(--blue);
+  border: 1px solid rgba(96, 165, 250, 0.25) !important;
+}
+
+.question-actions button:active {
+  transform: scale(0.96);
+  opacity: 0.85;
+}
+
+.question-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.btn-other {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: var(--text-muted) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
 .responding-label {
@@ -480,16 +526,25 @@ body {
   // ── Build a session card ──────────────────────────────
   function buildCard(session) {
     const isPermission = session.status === 'needs_permission' && session.permission_request;
+    const isQuestion = isPermission && session.permission_request.tool_name === 'AskUserQuestion';
     const isResponding = respondingSessions.has(session.id);
     const isExpanded = expandedSessions.has(session.id);
 
-    let html = '<div class="card' + (isPermission ? ' permission' : '') + (isExpanded ? ' expanded' : '') + '" data-id="' + esc(session.id) + '">';
+    var cardClass = 'card';
+    if (isQuestion) cardClass += ' question';
+    else if (isPermission) cardClass += ' permission';
+    if (isExpanded) cardClass += ' expanded';
+    let html = '<div class="' + cardClass + '" data-id="' + esc(session.id) + '">';
 
     // Header row
     html += '<div class="card-header">';
     html += '<span class="status-dot ' + esc(session.status) + '"></span>';
     html += '<span class="card-name">' + esc(session.name) + '</span>';
-    html += '<span class="status-label ' + esc(session.status) + '">' + statusText(session.status) + '</span>';
+    if (isQuestion) {
+      html += '<span class="status-label" style="color:#facc15">Question</span>';
+    } else {
+      html += '<span class="status-label ' + esc(session.status) + '">' + statusText(session.status) + '</span>';
+    }
     html += '</div>';
 
     // CWD
@@ -499,8 +554,32 @@ body {
     html += '<div class="card-elapsed" data-last-activity="' + esc(session.last_activity) + '">'
       + formatElapsed(session.last_activity) + '</div>';
 
+    // Question section
+    if (isQuestion) {
+      const pr = session.permission_request;
+      html += '<div class="permission-section">';
+      html += '<div class="permission-tool">';
+      html += '<span class="question-label">Question</span>';
+      html += '</div>';
+      if (pr.tool_summary) {
+        html += '<div class="permission-summary">' + esc(pr.tool_summary) + '</div>';
+      }
+      if (isResponding) {
+        html += '<div class="responding-label">Responding...</div>';
+      } else {
+        if (pr.tool_options && pr.tool_options.length > 0) {
+          html += '<div class="question-actions">';
+          for (var oi = 0; oi < pr.tool_options.length; oi++) {
+            html += '<button onclick="handleQuestionOption(\'' + esc(session.id) + '\',' + oi + ')">'
+              + esc(pr.tool_options[oi]) + '</button>';
+          }
+          html += '<button class="btn-other" onclick="handleQuestionCustom(\'' + esc(session.id) + '\')">Other...</button>';
+          html += '</div>';
+        }
+      }
+      html += '</div>';
     // Permission section
-    if (isPermission) {
+    } else if (isPermission) {
       const pr = session.permission_request;
       html += '<div class="permission-section">';
       html += '<div class="permission-tool">';
@@ -659,15 +738,19 @@ body {
   };
 
   // ── Handle permission button click ────────────────────
-  window.handlePermission = function (sessionId, decision) {
+  window.handlePermission = function (sessionId, decision, extra) {
     respondingSessions.add(sessionId);
     render();
 
-    var payload = JSON.stringify({
+    var msg = {
       type: 'permission_response',
       session_id: sessionId,
       decision: decision
-    });
+    };
+    if (extra) {
+      for (var k in extra) { msg[k] = extra[k]; }
+    }
+    var payload = JSON.stringify(msg);
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(payload);
@@ -676,6 +759,19 @@ body {
       xhr.open('POST', '/api/permission-response');
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.send(payload);
+    }
+  };
+
+  // ── Handle question option click ───────────────────────
+  window.handleQuestionOption = function (sessionId, optionIndex) {
+    handlePermission(sessionId, 'allow', { option_index: optionIndex });
+  };
+
+  // ── Handle question custom input ──────────────────────
+  window.handleQuestionCustom = function (sessionId) {
+    var text = prompt('Enter your response:');
+    if (text !== null && text !== '') {
+      handlePermission(sessionId, 'allow', { custom_answer: text });
     }
   };
 

@@ -3,6 +3,7 @@
 
 import json
 import os
+import subprocess
 import sys
 import random
 import time
@@ -226,6 +227,11 @@ def summarize_tool_input(tool_name, tool_input):
         return tool_input.get("url", "")
     if tool_name == "WebSearch":
         return tool_input.get("query", "")
+    if tool_name == "AskUserQuestion":
+        questions = tool_input.get("questions", [])
+        if questions and isinstance(questions, list):
+            return questions[0].get("question", "")
+        return ""
     for v in tool_input.values():
         if isinstance(v, str) and v:
             return v[:80]
@@ -373,6 +379,11 @@ elif event == "PermissionRequest":
         if content:
             lines = content.split("\n")[:100]
             perm["tool_content"] = "\n".join(lines)
+    if tool_name == "AskUserQuestion" and isinstance(tool_input, dict):
+        questions = tool_input.get("questions", [])
+        if questions and isinstance(questions, list):
+            options = questions[0].get("options", [])
+            perm["tool_options"] = [o.get("label", "") for o in options if isinstance(o, dict)]
     session["permission_request"] = perm
     write_session(session)
     # debug_log(f"  wrote session with needs_permission")
@@ -423,6 +434,28 @@ elif event == "PermissionRequest":
                         allowed.append(tool_summary)
                     session["allowed_summaries"] = allowed
                 write_session(session)
+
+            # For AskUserQuestion: type the answer into the terminal via tmux
+            if tool_name == "AskUserQuestion" and decision != "deny":
+                pane = (session or {}).get("tmux_pane", "")
+                option_index = response.get("option_index")
+                custom_answer = response.get("custom_answer")
+                if pane and option_index is not None:
+                    keys = ["Down"] * int(option_index) + ["Enter"]
+                    subprocess.Popen(
+                        ["bash", "-c", f"sleep 1.5 && tmux send-keys -t '{pane}' {' '.join(keys)}"],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    )
+                elif pane and custom_answer:
+                    num_opts = len(perm_data.get("tool_options", []))
+                    nav_keys = ["Down"] * num_opts + ["Enter"]
+                    escaped = custom_answer.replace("'", "'\\''")
+                    subprocess.Popen(
+                        ["bash", "-c",
+                         f"sleep 1.5 && tmux send-keys -t '{pane}' {' '.join(nav_keys)}"
+                         f" && sleep 0.3 && tmux send-keys -t '{pane}' '{escaped}' Enter"],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    )
 
             output = {
                 "hookSpecificOutput": {

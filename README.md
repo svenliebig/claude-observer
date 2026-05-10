@@ -9,11 +9,14 @@ Each Claude instance gets a unique crab name (Pinchy, Snippy, Clawdia...) and th
 - **Dynamic Island UI** — floating panel at the top center of your screen, expands on click to show all sessions
 - **Animated crabs** — each session gets a pixel-art crab with state-dependent animations
 - **Permission management** — approve, deny, or "Always Allow" tool permissions directly from the panel, with code preview for file writes
+- **Expandable content** — click "Show full content" to expand the island to 50% screen width and view up to 80 lines of code
+- **Web dashboard** — local HTTP + WebSocket server for remote session monitoring and permission approval from your phone
 - **Terminal detection** — auto-detects Ghostty, iTerm2, Terminal, WezTerm, Alacritty, and kitty
 - **Click to focus** — click a session to switch to its terminal window (tmux pane selection supported)
 - **Sound alerts** — configurable sounds for permission requests and errors
+- **Crab name persistence** — each repository gets a deterministic crab name stored in `~/.claude-observer/personalities.json`
 - **Auto-cleanup** — removes stale sessions (dead process + inactive for 5 minutes)
-- **Settings** — right-click the panel to configure notification sounds
+- **Settings** — right-click the panel to configure notification sounds and web dashboard
 
 ## Crab States
 
@@ -36,6 +39,20 @@ When Claude requests permission to use a tool, the panel expands to show:
 "Allow all" grants the category (edits, bash, file reads, file searches, web fetches, web searches) for the rest of that session.
 
 If you handle the permission in your terminal instead, the panel detects it and clears automatically. Unhandled requests time out after 120 seconds.
+
+## Web Dashboard
+
+Claude Observer includes a built-in web server that serves a real-time dashboard, perfect for monitoring sessions and approving permissions from your phone.
+
+- **Real-time updates** via WebSocket (with HTTP polling fallback)
+- **Permission approval** — Allow, Deny, or Always Allow from any device on your network
+- **Expandable content** — view full file content in permission requests
+- **PWA support** — install to your phone's home screen for an app-like experience
+- **Sound & vibration alerts** when permissions are requested
+
+Enable it in Settings (right-click the island) or set `web_dashboard_enabled: true` in `~/.claude-observer/settings.json`. Default port is `9321`.
+
+Access it at `http://<your-ip>:9321` from any device on the same network.
 
 ## Install
 
