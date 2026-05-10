@@ -501,6 +501,8 @@ elif event == "PermissionRequest":
     session = read_session()
     if session:
         session.pop("permission_request", None)
+        if session.get("status") == "needs_permission":
+            session["status"] = "working"
         write_session(session)
 
 elif event == "SubagentStart":
