@@ -59,7 +59,7 @@ def load_personalities():
 
 
 def save_personalities(data):
-    tmp = PERSONALITIES_FILE + ".tmp"
+    tmp = PERSONALITIES_FILE + f".{os.getpid()}.tmp"
     with open(tmp, "w") as f:
         json.dump(data, f, indent=2)
     os.replace(tmp, PERSONALITIES_FILE)
@@ -187,7 +187,7 @@ def read_session():
 
 
 def write_session(session):
-    tmp = session_file + ".tmp"
+    tmp = session_file + f".{os.getpid()}.tmp"
     with open(tmp, "w") as f:
         json.dump(session, f)
     os.replace(tmp, session_file)
