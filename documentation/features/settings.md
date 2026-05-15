@@ -15,7 +15,8 @@ Settings are stored as JSON at `~/.claude-observer/settings.json`. Both the Swif
 ```json
 {
   "permission_sound": "Ping",
-  "error_sound": "Basso"
+  "error_sound": "Basso",
+  "disable_motion": false
 }
 ```
 
@@ -27,6 +28,12 @@ Settings are stored as JSON at `~/.claude-observer/settings.json`. Both the Swif
 | `error_sound` | `"Basso"` | Sound played on session error. Set to `""` to disable. |
 
 Available sounds are the macOS system sounds found in `/System/Library/Sounds/` (e.g., Ping, Basso, Blow, Bottle, Frog, Funk, Glass, Hero, Morse, Pop, Purr, Sosumi, Submarine, Tink).
+
+### Display Settings
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `disable_motion` | `false` | When `true`, disables all crab animation (leg wiggle, claw wave, bounce, sparkles, pupil movement, glow pulse). The crab is drawn as a static image at frame 0. |
 
 ## Architecture
 

@@ -60,24 +60,28 @@ struct ObserverSettings: Codable {
     var errorSound: String
     var webDashboardEnabled: Bool
     var webDashboardPort: Int
+    var disableMotion: Bool
 
     enum CodingKeys: String, CodingKey {
         case permissionSound = "permission_sound"
         case errorSound = "error_sound"
         case webDashboardEnabled = "web_dashboard_enabled"
         case webDashboardPort = "web_dashboard_port"
+        case disableMotion = "disable_motion"
     }
 
     static let defaults = ObserverSettings(
         permissionSound: "Ping", errorSound: "Basso",
-        webDashboardEnabled: false, webDashboardPort: 9321
+        webDashboardEnabled: false, webDashboardPort: 9321,
+        disableMotion: false
     )
 
-    init(permissionSound: String, errorSound: String, webDashboardEnabled: Bool, webDashboardPort: Int) {
+    init(permissionSound: String, errorSound: String, webDashboardEnabled: Bool, webDashboardPort: Int, disableMotion: Bool) {
         self.permissionSound = permissionSound
         self.errorSound = errorSound
         self.webDashboardEnabled = webDashboardEnabled
         self.webDashboardPort = webDashboardPort
+        self.disableMotion = disableMotion
     }
 
     init(from decoder: Decoder) throws {
@@ -86,6 +90,7 @@ struct ObserverSettings: Codable {
         errorSound = (try? c.decode(String.self, forKey: .errorSound)) ?? Self.defaults.errorSound
         webDashboardEnabled = (try? c.decode(Bool.self, forKey: .webDashboardEnabled)) ?? Self.defaults.webDashboardEnabled
         webDashboardPort = (try? c.decode(Int.self, forKey: .webDashboardPort)) ?? Self.defaults.webDashboardPort
+        disableMotion = (try? c.decode(Bool.self, forKey: .disableMotion)) ?? Self.defaults.disableMotion
     }
 
     static func load() -> ObserverSettings {
@@ -129,6 +134,7 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
     private var dashPortField: NSTextField!
     private var dashUrlLabel: NSTextField!
     private var dashPortLabel: NSTextField!
+    private var motionCheckbox: NSButton!
     var onDashboardSettingsChanged: (() -> Void)?
 
     override init() {
@@ -145,7 +151,7 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
 
         settings = ObserverSettings.load()
 
-        let windowHeight: CGFloat = 310
+        let windowHeight: CGFloat = 370
         let w = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: windowHeight),
             styleMask: [.titled, .closable],
@@ -201,6 +207,25 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
         previewBtn.frame = NSRect(x: 360, y: y - 3, width: 40, height: 26)
         previewBtn.font = NSFont.systemFont(ofSize: 10)
         contentView.addSubview(previewBtn)
+        y -= 30
+
+        // --- Separator ---
+        let sep1 = NSBox(frame: NSRect(x: 20, y: y, width: 380, height: 1))
+        sep1.boxType = .separator
+        contentView.addSubview(sep1)
+        y -= 24
+
+        // --- Display Settings ---
+        let displayHeader = NSTextField(labelWithString: "Display")
+        displayHeader.frame = NSRect(x: 20, y: y, width: 200, height: 18)
+        displayHeader.font = NSFont.boldSystemFont(ofSize: 13)
+        contentView.addSubview(displayHeader)
+        y -= 30
+
+        motionCheckbox = NSButton(checkboxWithTitle: "Disable motion", target: self, action: #selector(motionSettingChanged(_:)))
+        motionCheckbox.frame = NSRect(x: 20, y: y, width: 250, height: 20)
+        motionCheckbox.state = settings.disableMotion ? .on : .off
+        contentView.addSubview(motionCheckbox)
         y -= 30
 
         // --- Separator ---
@@ -292,6 +317,11 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
         task.standardOutput = FileHandle.nullDevice
         task.standardError = FileHandle.nullDevice
         try? task.run()
+    }
+
+    @objc private func motionSettingChanged(_ sender: NSButton) {
+        settings.disableMotion = sender.state == .on
+        settings.save()
     }
 
     @objc private func dashEnabledChanged(_ sender: NSButton) {
@@ -1812,7 +1842,11 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
 
         animTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            self.animFrame += 1
+            if ObserverSettings.load().disableMotion {
+                self.animFrame = 0
+            } else {
+                self.animFrame += 1
+            }
             self.updateDisplay()
         }
 
