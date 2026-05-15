@@ -1,4 +1,4 @@
-.PHONY: build install uninstall run stop clean
+.PHONY: build install uninstall run run-menubar stop clean
 
 OBSERVER_DIR = $(HOME)/.claude-observer
 BINARY = $(OBSERVER_DIR)/bin/claude-observer
@@ -18,6 +18,10 @@ uninstall:
 run: build
 	@$(BINARY) &
 	@echo "Claude Observer is running."
+
+run-menubar: build
+	@$(BINARY) --menubar &
+	@echo "Claude Observer is running (menubar mode)."
 
 stop:
 	@pkill -x claude-observer 2>/dev/null && echo "Stopped." || echo "Not running."

@@ -103,6 +103,21 @@ struct ObserverSettings: Codable {
     }
 }
 
+// MARK: - Display Mode
+
+enum DisplayMode {
+    case floating
+    case menubar
+
+    static func from(arguments: [String]) -> DisplayMode {
+        for arg in arguments {
+            if arg == "--menubar" || arg == "--statusbar" { return .menubar }
+            if arg == "--floating" { return .floating }
+        }
+        return .floating
+    }
+}
+
 // MARK: - Settings Window
 
 class SettingsWindowController: NSObject, NSWindowDelegate {
@@ -1759,6 +1774,14 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
     private var clickMonitor: Any?
     private let settingsController = SettingsWindowController()
     private var dashboardServer: WebDashboardServer?
+    private let displayMode: DisplayMode
+    private var statusItem: NSStatusItem?
+    private var menuBarPanelVisible = false
+
+    init(displayMode: DisplayMode) {
+        self.displayMode = displayMode
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if isDuplicate() {
@@ -1775,7 +1798,12 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         }
         startDashboardServerIfEnabled()
 
-        setupPanel()
+        switch displayMode {
+        case .floating:
+            setupPanel()
+        case .menubar:
+            setupMenuBar()
+        }
         pollSessions()
 
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
@@ -1851,6 +1879,211 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         panel.contentView?.addSubview(glowView)
 
         panel.orderFrontRegardless()
+    }
+
+    // MARK: - Menu Bar Setup
+
+    private func setupMenuBar() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = item.button {
+            button.target = self
+            button.action = #selector(statusItemClicked(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            button.imagePosition = .imageOnly
+        }
+        statusItem = item
+
+        let initialFrame = NSRect(x: 0, y: 0, width: IslandView.expandedWidth, height: IslandView.compactHeight + 16)
+        panel = IslandPanel(contentRect: initialFrame)
+
+        glowView = NSView(frame: NSRect(origin: .zero, size: initialFrame.size))
+        glowView.wantsLayer = true
+        glowView.autoresizingMask = [.width, .height]
+        glowView.layer?.cornerRadius = 16
+        glowView.layer?.backgroundColor = NSColor(white: 0.08, alpha: 1).cgColor
+        glowView.layer?.shadowOffset = .zero
+        glowView.layer?.shadowOpacity = 0
+
+        visualEffectView = NSVisualEffectView(frame: NSRect(origin: .zero, size: initialFrame.size))
+        visualEffectView.material = .hudWindow
+        visualEffectView.state = .active
+        visualEffectView.appearance = NSAppearance(named: .darkAqua)
+        visualEffectView.blendingMode = .behindWindow
+        visualEffectView.wantsLayer = true
+        visualEffectView.autoresizingMask = [.width, .height]
+        visualEffectView.layer?.cornerRadius = 16
+        visualEffectView.layer?.masksToBounds = true
+
+        islandView = IslandView(frame: NSRect(origin: .zero, size: initialFrame.size))
+        islandView.wantsLayer = true
+        islandView.layerContentsRedrawPolicy = .duringViewResize
+        islandView.autoresizingMask = [.width, .height]
+        islandView.isExpanded = true
+        islandView.onToggle = { [weak self] in self?.hideMenuBarPanel() }
+        islandView.onSessionClick = { [weak self] session in
+            guard session.isClickable else { return }
+            let hasTmux = session.tmuxPane != nil && !(session.tmuxPane?.isEmpty ?? true)
+            if hasTmux {
+                self?.focusTmuxPane(session.tmuxPane!, terminalApp: session.terminalApp)
+            } else if let app = session.terminalApp, !app.isEmpty {
+                self?.focusTerminalApp(app, pid: session.pid)
+            }
+        }
+        islandView.onPermissionResponse = { [weak self] session, decision, extra in
+            self?.respondToPermission(session: session, decision: decision, extra: extra)
+        }
+        islandView.onQuestionCustomInput = { [weak self] session in
+            self?.showQuestionInputDialog(for: session)
+        }
+        islandView.onContentExpandToggle = { [weak self] in
+            self?.resizeMenuBarPanel()
+        }
+        islandView.onOpenSettings = { [weak self] in
+            self?.settingsController.showWindow()
+        }
+
+        visualEffectView.addSubview(islandView)
+        glowView.addSubview(visualEffectView)
+        panel.contentView?.addSubview(glowView)
+
+        // Stay hidden until status item is clicked.
+        updateStatusItemImage()
+    }
+
+    @objc private func statusItemClicked(_ sender: NSStatusBarButton) {
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseUp || (event?.modifierFlags.contains(.control) ?? false) {
+            showStatusItemMenu()
+        } else {
+            if menuBarPanelVisible {
+                hideMenuBarPanel()
+            } else {
+                showMenuBarPanel()
+            }
+        }
+    }
+
+    private func showStatusItemMenu() {
+        guard let button = statusItem?.button else { return }
+        let menu = NSMenu()
+        let settingsItem = NSMenuItem(
+            title: "Settings\u{2026}",
+            action: #selector(menuBarSettingsClicked(_:)),
+            keyEquivalent: ","
+        )
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(
+            title: "Quit Claude Observer",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q"
+        ))
+        statusItem?.menu = menu
+        button.performClick(nil)
+        statusItem?.menu = nil
+    }
+
+    @objc private func menuBarSettingsClicked(_ sender: NSMenuItem) {
+        settingsController.showWindow()
+    }
+
+    private func showMenuBarPanel() {
+        let frame = menuBarPanelFrame()
+        panel.setFrame(frame, display: false)
+        panel.orderFrontRegardless()
+        menuBarPanelVisible = true
+        updateGlow()
+
+        clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            self?.hideMenuBarPanel()
+        }
+    }
+
+    private func hideMenuBarPanel() {
+        guard menuBarPanelVisible else { return }
+        panel.orderOut(nil)
+        menuBarPanelVisible = false
+        islandView.expandedContentSessionId = nil
+        if let monitor = clickMonitor {
+            NSEvent.removeMonitor(monitor)
+            clickMonitor = nil
+        }
+    }
+
+    private func resizeMenuBarPanel() {
+        guard menuBarPanelVisible else { return }
+        let newFrame = menuBarPanelFrame()
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.2
+            ctx.allowsImplicitAnimation = true
+            self.panel.animator().setFrame(newFrame, display: true)
+        }
+    }
+
+    private func menuBarPanelFrame() -> NSRect {
+        let hasExpandedContent = islandView.expandedContentSessionId != nil
+        let screen = NSScreen.main
+        let screenW = screen?.frame.width ?? 1000
+        let w = hasExpandedContent ? max(IslandView.expandedWidth, screenW * 0.5) : IslandView.expandedWidth
+        let totalRowH = sessions.values.reduce(CGFloat(0)) { sum, session in
+            if session.status == "needs_permission", let perm = session.permissionRequest {
+                if perm.toolName == "AskUserQuestion" {
+                    return sum + IslandView.questionRowHeight(for: perm)
+                }
+                let isContentExpanded = islandView.expandedContentSessionId == session.id
+                return sum + IslandView.permissionRowHeight(for: perm, expanded: isContentExpanded)
+            }
+            return sum + IslandView.sessionRowHeight
+        }
+        let rowsHeight = sessions.isEmpty ? 0 : max(totalRowH, IslandView.sessionRowHeight) + 8
+        let h = IslandView.compactHeight + 8 + rowsHeight + 8
+
+        if let button = statusItem?.button, let buttonWindow = button.window {
+            let buttonRect = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
+            var x = buttonRect.midX - w / 2
+            if let screenFrame = screen?.visibleFrame {
+                x = max(screenFrame.minX + 4, min(x, screenFrame.maxX - w - 4))
+            }
+            let y = buttonRect.minY - h - 4
+            return NSRect(x: x, y: y, width: w, height: h)
+        }
+        let fallbackY = (screen?.visibleFrame.maxY ?? 800) - h - 4
+        return NSRect(x: (screenW - w) / 2, y: fallbackY, width: w, height: h)
+    }
+
+    private func updateStatusItemImage() {
+        guard let button = statusItem?.button else { return }
+        let state = islandView?.aggregateState() ?? .none
+        let crabSize: CGFloat = 18
+        let dotSize: CGFloat = 7
+        let gap: CGFloat = 3
+        let totalW = crabSize + gap + dotSize
+        let img = NSImage(size: NSSize(width: totalW, height: crabSize))
+        img.lockFocus()
+        CrabRenderer.createImage(size: crabSize, frame: animFrame, state: state)
+            .draw(in: NSRect(x: 0, y: 0, width: crabSize, height: crabSize))
+
+        let dotColor: NSColor
+        switch state {
+        case .working:    dotColor = .systemGreen
+        case .needsInput: dotColor = .systemOrange
+        case .error:      dotColor = .systemPink
+        case .idle:       dotColor = NSColor(white: 0.55, alpha: 0.8)
+        case .none:       dotColor = NSColor(white: 0.45, alpha: 0.5)
+        }
+        dotColor.setFill()
+        let dotY = (crabSize - dotSize) / 2
+        NSBezierPath(ovalIn: NSRect(x: crabSize + gap, y: dotY, width: dotSize, height: dotSize)).fill()
+        img.unlockFocus()
+        img.isTemplate = false
+        button.image = img
+
+        if sessions.count > 1 {
+            button.title = " \(sessions.count)"
+        } else {
+            button.title = ""
+        }
     }
 
     // MARK: - Frame Calculations
@@ -1994,6 +2227,22 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         islandView.sessions = Array(sessions.values)
         islandView.animFrame = animFrame
         islandView.needsDisplay = true
+
+        if displayMode == .menubar {
+            updateStatusItemImage()
+            if menuBarPanelVisible {
+                updateGlow()
+                let newFrame = menuBarPanelFrame()
+                if panel.frame != newFrame {
+                    NSAnimationContext.runAnimationGroup { ctx in
+                        ctx.duration = 0.2
+                        ctx.allowsImplicitAnimation = true
+                        self.panel.animator().setFrame(newFrame, display: true)
+                    }
+                }
+            }
+            return
+        }
 
         updateGlow()
 
@@ -2210,6 +2459,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 
-let delegate = ClaudeObserverDelegate()
+let displayMode = DisplayMode.from(arguments: CommandLine.arguments)
+let delegate = ClaudeObserverDelegate(displayMode: displayMode)
 app.delegate = delegate
 app.run()

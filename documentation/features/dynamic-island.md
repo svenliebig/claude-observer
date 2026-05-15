@@ -66,3 +66,38 @@ When no sessions are active, the island collapses to a minimal dot or hides enti
 - Centered horizontally at the top of the main screen
 - Y offset: ~6px below the top edge (just below the menu bar / notch area)
 - Stays on the main display (follows NSScreen.main)
+
+## Menu Bar Mode (Alternative Surface)
+
+The same UI can be hosted in the macOS menu bar instead of a floating panel. The mode is selected at launch via `--menubar` (alias: `--statusbar`); the floating mode remains the default and is otherwise unchanged.
+
+### Status Item
+
+- Custom `NSStatusItem` with variable length
+- Icon: the aggregate crab (rendered by `CrabRenderer`) plus a small state-coloured dot
+- When more than one session is active, the session count is shown as the button title next to the icon
+- Updates every animation tick (2 fps) so the working state animates in-place
+
+### Panel
+
+- The `IslandView` is reused unchanged, in always-expanded mode (`isExpanded = true`)
+- The same `IslandPanel` (borderless non-activating `NSPanel`) is anchored just below the status item button
+- Width: `expandedWidth` (440 px), or up to half the screen when a "Show full content" preview is open
+- Height: same calculation as the floating expanded frame
+- Clamped horizontally to the visible screen frame so it never goes off-edge
+
+### Interaction
+
+| Event | Behaviour |
+|-------|-----------|
+| Left-click status item | Toggle panel (show if hidden, hide if visible) |
+| Right-click / Ctrl-click status item | Show context menu (Settings..., Quit) |
+| Click anywhere outside the panel | Hide the panel (global `NSEvent` monitor) |
+| Click a session row | Focus the terminal / tmux pane (same as floating mode) |
+| Permission buttons | Same handler chain as floating mode |
+
+### Differences vs. Floating Mode
+
+- No compact pill at the top of the screen; the status item replaces it
+- No expand/collapse animation -- the panel is simply shown or hidden
+- The dock icon stays hidden in both modes (`setActivationPolicy(.accessory)`)

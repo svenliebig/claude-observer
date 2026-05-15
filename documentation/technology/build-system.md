@@ -9,7 +9,8 @@ Claude Observer uses a `Makefile` for build orchestration and Python scripts for
 | `build` | `make build` | Compiles the Swift app to `~/.claude-observer/bin/claude-observer` |
 | `install` | `make install` | Runs `scripts/install.py` (compile + hook setup + settings config) |
 | `uninstall` | `make uninstall` | Runs `scripts/uninstall.py` (remove hooks, binary, state) |
-| `run` | `make run` | Builds and launches the app in the background |
+| `run` | `make run` | Builds and launches the app in floating Dynamic Island mode |
+| `run-menubar` | `make run-menubar` | Builds and launches the app in menu bar mode (`--menubar`) |
 | `stop` | `make stop` | Kills the running `claude-observer` process via `pkill` |
 | `clean` | `make clean` | Removes the binary and all session JSON files |
 
@@ -18,12 +19,24 @@ Claude Observer uses a `Makefile` for build orchestration and Python scripts for
 The Swift app is a single-file compilation:
 
 ```bash
-swiftc -O -o ~/.claude-observer/bin/claude-observer Sources/main.swift -framework Cocoa
+swiftc -O -o ~/.claude-observer/bin/claude-observer Sources/main.swift -framework Cocoa -framework Network
 ```
 
 - `-O`: Optimized build
 - `-framework Cocoa`: Links AppKit and Foundation
+- `-framework Network`: Used by the local web dashboard server
 - No Swift Package Manager or Xcode project needed
+
+## Runtime Flags
+
+The binary chooses its UI surface at startup based on CLI flags:
+
+| Flag | Effect |
+|------|--------|
+| _(none)_ / `--floating` | Floating Dynamic Island panel at the top of the screen (default) |
+| `--menubar` / `--statusbar` | Status item in the macOS menu bar with a click-down session panel |
+
+The mode is parsed once at launch (`DisplayMode.from(arguments:)`) -- switching modes requires restarting the binary.
 
 ## Installation Process (`scripts/install.py`)
 

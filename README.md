@@ -7,6 +7,7 @@ Each Claude instance gets a unique crab name (Pinchy, Snippy, Clawdia...) and th
 ## Features
 
 - **Dynamic Island UI** — floating panel at the top center of your screen, expands on click to show all sessions
+- **Menu bar mode** — alternative `--menubar` launch mode that lives as a status item next to the clock and pops the session list down on click
 - **Animated crabs** — each session gets a pixel-art crab with state-dependent animations
 - **Permission management** — approve, deny, or "Always Allow" tool permissions directly from the panel, with code preview for file writes
 - **Expandable content** — click "Show full content" to expand the island to 50% screen width and view up to 80 lines of code
@@ -69,15 +70,27 @@ This will:
 ## Run
 
 ```bash
-make run
+make run            # floating Dynamic Island (default)
+make run-menubar    # status item in the macOS menu bar
 ```
 
 Or directly:
 ```bash
-~/.claude-observer/bin/claude-observer &
+~/.claude-observer/bin/claude-observer &              # floating
+~/.claude-observer/bin/claude-observer --menubar &    # menu bar
 ```
 
-To auto-start on login, add the binary to **System Settings > General > Login Items**.
+The display mode is chosen at startup via the `--menubar` (alias: `--statusbar`) or `--floating` flag. To auto-start on login, add the binary — with the desired flag — to **System Settings > General > Login Items**.
+
+### Menu Bar Mode
+
+In menu bar mode the floating panel is replaced by a status item showing the aggregate crab icon, a state-coloured dot, and a session count badge (when more than one session is active).
+
+- **Left-click** the status item to toggle the session panel below it
+- **Right-click** (or Ctrl-click) for Settings / Quit
+- Clicking outside the panel dismisses it
+
+All other behaviour (permission UI, click-to-focus, sounds, web dashboard) is identical to the floating mode.
 
 ## Stop
 
