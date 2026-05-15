@@ -61,6 +61,8 @@ struct ObserverSettings: Codable {
     var webDashboardEnabled: Bool
     var webDashboardPort: Int
     var disableMotion: Bool
+    var changeCrabColor: Bool
+    var crabColor: String
 
     enum CodingKeys: String, CodingKey {
         case permissionSound = "permission_sound"
@@ -68,20 +70,24 @@ struct ObserverSettings: Codable {
         case webDashboardEnabled = "web_dashboard_enabled"
         case webDashboardPort = "web_dashboard_port"
         case disableMotion = "disable_motion"
+        case changeCrabColor = "change_crab_color"
+        case crabColor = "crab_color"
     }
 
     static let defaults = ObserverSettings(
         permissionSound: "Ping", errorSound: "Basso",
         webDashboardEnabled: false, webDashboardPort: 9321,
-        disableMotion: false
+        disableMotion: false, changeCrabColor: false, crabColor: ""
     )
 
-    init(permissionSound: String, errorSound: String, webDashboardEnabled: Bool, webDashboardPort: Int, disableMotion: Bool) {
+    init(permissionSound: String, errorSound: String, webDashboardEnabled: Bool, webDashboardPort: Int, disableMotion: Bool, changeCrabColor: Bool, crabColor: String) {
         self.permissionSound = permissionSound
         self.errorSound = errorSound
         self.webDashboardEnabled = webDashboardEnabled
         self.webDashboardPort = webDashboardPort
         self.disableMotion = disableMotion
+        self.changeCrabColor = changeCrabColor
+        self.crabColor = crabColor
     }
 
     init(from decoder: Decoder) throws {
@@ -91,6 +97,8 @@ struct ObserverSettings: Codable {
         webDashboardEnabled = (try? c.decode(Bool.self, forKey: .webDashboardEnabled)) ?? Self.defaults.webDashboardEnabled
         webDashboardPort = (try? c.decode(Int.self, forKey: .webDashboardPort)) ?? Self.defaults.webDashboardPort
         disableMotion = (try? c.decode(Bool.self, forKey: .disableMotion)) ?? Self.defaults.disableMotion
+        changeCrabColor = (try? c.decode(Bool.self, forKey: .changeCrabColor)) ?? Self.defaults.changeCrabColor
+        crabColor = (try? c.decode(String.self, forKey: .crabColor)) ?? Self.defaults.crabColor
     }
 
     static func load() -> ObserverSettings {
@@ -135,6 +143,9 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
     private var dashUrlLabel: NSTextField!
     private var dashPortLabel: NSTextField!
     private var motionCheckbox: NSButton!
+    private var colorCheckbox: NSButton!
+    private var colorWell: NSColorWell!
+    private var colorResetBtn: NSButton!
     var onDashboardSettingsChanged: (() -> Void)?
 
     override init() {
@@ -151,7 +162,7 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
 
         settings = ObserverSettings.load()
 
-        let windowHeight: CGFloat = 370
+        let windowHeight: CGFloat = 404
         let w = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: windowHeight),
             styleMask: [.titled, .closable],
@@ -226,6 +237,25 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
         motionCheckbox.frame = NSRect(x: 20, y: y, width: 250, height: 20)
         motionCheckbox.state = settings.disableMotion ? .on : .off
         contentView.addSubview(motionCheckbox)
+        y -= 34
+
+        colorCheckbox = NSButton(checkboxWithTitle: "Change crab color", target: self, action: #selector(colorCheckboxChanged(_:)))
+        colorCheckbox.frame = NSRect(x: 20, y: y, width: 200, height: 20)
+        colorCheckbox.state = settings.changeCrabColor ? .on : .off
+        contentView.addSubview(colorCheckbox)
+
+        colorWell = NSColorWell(frame: NSRect(x: 220, y: y - 2, width: 44, height: 24))
+        colorWell.color = nsColorFromHex(settings.crabColor) ?? NSColor(red: 1.0, green: 0.45, blue: 0.15, alpha: 1.0)
+        colorWell.target = self
+        colorWell.action = #selector(crabColorChanged(_:))
+        contentView.addSubview(colorWell)
+
+        colorResetBtn = NSButton(title: "Reset", target: self, action: #selector(crabColorReset(_:)))
+        colorResetBtn.bezelStyle = .rounded
+        colorResetBtn.frame = NSRect(x: 272, y: y - 2, width: 60, height: 24)
+        colorResetBtn.font = NSFont.systemFont(ofSize: 11)
+        contentView.addSubview(colorResetBtn)
+        updateColorFieldVisibility()
         y -= 30
 
         // --- Separator ---
@@ -322,6 +352,53 @@ class SettingsWindowController: NSObject, NSWindowDelegate {
     @objc private func motionSettingChanged(_ sender: NSButton) {
         settings.disableMotion = sender.state == .on
         settings.save()
+    }
+
+    @objc private func colorCheckboxChanged(_ sender: NSButton) {
+        settings.changeCrabColor = sender.state == .on
+        if settings.changeCrabColor && settings.crabColor.isEmpty {
+            settings.crabColor = hexFromNSColor(colorWell.color)
+        }
+        settings.save()
+        updateColorFieldVisibility()
+    }
+
+    @objc private func crabColorChanged(_ sender: NSColorWell) {
+        settings.crabColor = hexFromNSColor(sender.color)
+        settings.save()
+    }
+
+    @objc private func crabColorReset(_ sender: NSButton) {
+        settings.crabColor = ""
+        settings.save()
+        colorWell.color = NSColor(red: 1.0, green: 0.45, blue: 0.15, alpha: 1.0)
+    }
+
+    private func updateColorFieldVisibility() {
+        let on = colorCheckbox.state == .on
+        colorWell.isHidden = !on
+        colorResetBtn.isHidden = !on
+    }
+
+    private func hexFromNSColor(_ color: NSColor) -> String {
+        let c = color.usingColorSpace(.sRGB) ?? color
+        let r = Int(round(c.redComponent * 255))
+        let g = Int(round(c.greenComponent * 255))
+        let b = Int(round(c.blueComponent * 255))
+        return String(format: "#%02X%02X%02X", r, g, b)
+    }
+
+    private func nsColorFromHex(_ hex: String) -> NSColor? {
+        var h = hex.trimmingCharacters(in: .whitespaces)
+        if h.isEmpty { return nil }
+        if h.hasPrefix("#") { h = String(h.dropFirst()) }
+        guard h.count == 6, let val = UInt64(h, radix: 16) else { return nil }
+        return NSColor(
+            red: CGFloat((val >> 16) & 0xFF) / 255.0,
+            green: CGFloat((val >> 8) & 0xFF) / 255.0,
+            blue: CGFloat(val & 0xFF) / 255.0,
+            alpha: 1.0
+        )
     }
 
     @objc private func dashEnabledChanged(_ sender: NSButton) {
@@ -688,11 +765,11 @@ enum CrabState {
 
 class CrabRenderer {
 
-    static func createImage(size: CGFloat = 18, frame: Int = 0, state: CrabState = .working) -> NSImage {
+    static func createImage(size: CGFloat = 18, frame: Int = 0, state: CrabState = .working, customColor: String? = nil) -> NSImage {
         let img = NSImage(size: NSSize(width: size, height: size))
         img.lockFocus()
         if let ctx = NSGraphicsContext.current?.cgContext {
-            drawCrab(ctx: ctx, w: size, h: size, frame: frame, state: state)
+            drawCrab(ctx: ctx, w: size, h: size, frame: frame, state: state, customColor: customColor)
         }
         img.unlockFocus()
         return img
@@ -702,7 +779,16 @@ class CrabRenderer {
         NSColor(red: r, green: g, blue: b, alpha: a).cgColor
     }
 
-    private static func drawCrab(ctx: CGContext, w: CGFloat, h: CGFloat, frame: Int, state: CrabState) {
+    private static func parseHexColor(_ hex: String) -> (CGFloat, CGFloat, CGFloat)? {
+        var h = hex.trimmingCharacters(in: .whitespaces)
+        if h.hasPrefix("#") { h = String(h.dropFirst()) }
+        guard h.count == 6, let val = UInt64(h, radix: 16) else { return nil }
+        return (CGFloat((val >> 16) & 0xFF) / 255.0,
+                CGFloat((val >> 8) & 0xFF) / 255.0,
+                CGFloat(val & 0xFF) / 255.0)
+    }
+
+    private static func drawCrab(ctx: CGContext, w: CGFloat, h: CGFloat, frame: Int, state: CrabState, customColor: String? = nil) {
         let crabScale: CGFloat = (state == .needsInput || state == .error) ? 0.78 : 1.0
         let crabOffX: CGFloat = (state == .needsInput || state == .error) ? -w * 0.08 : 0
         let crabOffY: CGFloat = 0.0
@@ -711,22 +797,28 @@ class CrabRenderer {
         let body: CGColor
         let shell: CGColor
 
-        switch state {
-        case .working:
-            body = color(1.0, 0.45, 0.15)
-            shell = color(0.9, 0.35, 0.1)
-        case .idle:
-            body = color(0.52, 0.52, 0.58, 0.4)
-            shell = color(0.42, 0.42, 0.48, 0.4)
-        case .needsInput:
-            body = color(1.0, 0.3, 0.2)
-            shell = color(0.9, 0.2, 0.12)
-        case .error:
-            body = color(0.85, 0.15, 0.45)
-            shell = color(0.7, 0.1, 0.35)
-        case .none:
-            body = color(0.52, 0.52, 0.58, 0.25)
-            shell = color(0.42, 0.42, 0.48, 0.25)
+        if let hex = customColor, !hex.isEmpty, let (r, g, b) = parseHexColor(hex) {
+            let a: CGFloat = (state == .idle) ? 0.4 : (state == .none) ? 0.25 : 1.0
+            body = color(r, g, b, a)
+            shell = color(r * 0.85, g * 0.85, b * 0.85, a)
+        } else {
+            switch state {
+            case .working:
+                body = color(1.0, 0.45, 0.15)
+                shell = color(0.9, 0.35, 0.1)
+            case .idle:
+                body = color(0.52, 0.52, 0.58, 0.4)
+                shell = color(0.42, 0.42, 0.48, 0.4)
+            case .needsInput:
+                body = color(1.0, 0.3, 0.2)
+                shell = color(0.9, 0.2, 0.12)
+            case .error:
+                body = color(0.85, 0.15, 0.45)
+                shell = color(0.7, 0.1, 0.35)
+            case .none:
+                body = color(0.52, 0.52, 0.58, 0.25)
+                shell = color(0.42, 0.42, 0.48, 0.25)
+            }
         }
 
         _ = alphaMultiplier
@@ -1807,6 +1899,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
     private let displayMode: DisplayMode
     private var statusItem: NSStatusItem?
     private var menuBarPanelVisible = false
+    private var menuBarCrabColor: String?
 
     init(displayMode: DisplayMode) {
         self.displayMode = displayMode
@@ -1842,11 +1935,13 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
 
         animTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            if ObserverSettings.load().disableMotion {
+            let settings = ObserverSettings.load()
+            if settings.disableMotion {
                 self.animFrame = 0
             } else {
                 self.animFrame += 1
             }
+            self.menuBarCrabColor = settings.changeCrabColor ? settings.crabColor : nil
             self.updateDisplay()
         }
 
@@ -2095,7 +2190,7 @@ class ClaudeObserverDelegate: NSObject, NSApplicationDelegate {
         let totalW = crabSize + gap + dotSize
         let img = NSImage(size: NSSize(width: totalW, height: crabSize))
         img.lockFocus()
-        CrabRenderer.createImage(size: crabSize, frame: animFrame, state: state)
+        CrabRenderer.createImage(size: crabSize, frame: animFrame, state: state, customColor: menuBarCrabColor)
             .draw(in: NSRect(x: 0, y: 0, width: crabSize, height: crabSize))
 
         let dotColor: NSColor

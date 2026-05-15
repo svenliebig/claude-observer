@@ -16,7 +16,9 @@ Settings are stored as JSON at `~/.claude-observer/settings.json`. Both the Swif
 {
   "permission_sound": "Ping",
   "error_sound": "Basso",
-  "disable_motion": false
+  "disable_motion": false,
+  "change_crab_color": false,
+  "crab_color": ""
 }
 ```
 
@@ -34,6 +36,8 @@ Available sounds are the macOS system sounds found in `/System/Library/Sounds/` 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `disable_motion` | `false` | When `true`, disables all crab animation (leg wiggle, claw wave, bounce, sparkles, pupil movement, glow pulse). The crab is drawn as a static image at frame 0. |
+| `change_crab_color` | `false` | When `true`, enables the custom crab color for the menu bar crab. |
+| `crab_color` | `""` (default orange) | Custom hex color for the menu bar crab (e.g., `"#3B82F6"` for blue). Only used when `change_crab_color` is `true`. Applies to all crab states; the notification badge ("!") keeps its own red color. Only affects the menu bar crab — crabs in the floating widget keep their default state colors. |
 
 ## Architecture
 
